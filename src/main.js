@@ -1,9 +1,13 @@
 import { initStore } from "./store/index.js";
 import { initRouter } from "./router.js";
-import { initGcal   } from "./features/gcal.js";
-import { initTodos  } from "./features/todos.js";
+import { initGcal       } from "./features/gcal.js";
+import { initTodos      } from "./features/todos.js";
+import { initAssignment } from "./features/assignment.js";
+import { initConstruction } from "./features/construction.js";
+import { initDashboard    } from "./features/dashboard.js";
+import { initKnowledge   } from "./features/knowledge.js";
 
-// 모달 닫기 공통 핸들러 (data-close-modal 속성)
+// 모달 닫기 공통 핸들러
 document.addEventListener("click", e => {
   const btn = e.target.closest("[data-close-modal]");
   if (btn) {
@@ -12,7 +16,6 @@ document.addEventListener("click", e => {
     m?.classList.remove("open");
     m?.classList.add("hidden");
   }
-  // 오버레이 클릭으로 닫기
   if (e.target.classList.contains("overlay")) {
     e.target.classList.remove("open");
     e.target.classList.add("hidden");
@@ -24,6 +27,10 @@ async function boot() {
   initRouter();
   initGcal();
   initTodos();
+  initAssignment();
+  initConstruction();
+  initDashboard();
+  initKnowledge();
   console.log("[app] booted ✓");
 }
 
