@@ -2,7 +2,7 @@
 export const esc = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 // 날짜
-export const today = () => new Date().toISOString().slice(0, 10);
+export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 export const localDate = d => new Date(d + "T00:00:00+09:00").toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit", weekday: "short" });
 
 // ID 생성

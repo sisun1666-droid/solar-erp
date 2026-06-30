@@ -106,6 +106,55 @@ function kpiSection(rows) {
   </div>`;
 }
 
+// ── 날씨 ─────────────────────────────────────────────────────────────────────
+const W_CITIES = [
+  { name:"대구", lat:35.8714, lon:128.6014 },
+  { name:"경북", lat:36.5759, lon:128.5056 },
+  { name:"경남", lat:35.4606, lon:128.2132 },
+  { name:"전남", lat:34.8679, lon:126.9910 },
+  { name:"충남", lat:36.6588, lon:126.6728 },
+];
+function wIcon(code) {
+  if (code === 0) return "☀️";
+  if (code <= 3)  return "⛅";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "❄️";
+  return "⛈️";
+}
+async function loadWeather() {
+  const box = document.getElementById("dashWeatherContent");
+  const fcBox = document.getElementById("dashForecastContent");
+  if (!box) return;
+  try {
+    const results = await Promise.all(W_CITIES.map(async c => {
+      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,wind_speed_10m,weathercode&daily=precipitation_probability_max,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul&forecast_days=7`);
+      const j = await r.json();
+      return { ...c, current: j.current, daily: j.daily };
+    }));
+    box.innerHTML = results.map(r =>
+      `<div class="weather-city">
+        <strong>${esc(r.name)}</strong>
+        <div class="value" style="font-size:18px">${wIcon(r.current.weathercode)} ${Math.round(r.current.temperature_2m)}°C</div>
+        <div class="meta">풍속 ${Math.round(r.current.wind_speed_10m)}m/s</div>
+      </div>`
+    ).join("");
+    const d = results[0].daily;
+    if (fcBox && d) {
+      fcBox.innerHTML = d.time.map((date, i) =>
+        `<div class="forecast-day${(d.precipitation_probability_max[i]||0) >= 50 ? " rain-day" : ""}">
+          <div class="fc-date">${date.slice(5)}</div>
+          <div class="fc-icon">${wIcon(0)}</div>
+          <div class="fc-temp">${Math.round(d.temperature_2m_min[i])}/${Math.round(d.temperature_2m_max[i])}°</div>
+          ${(d.precipitation_probability_max[i]||0) > 20 ? `<div class="fc-rain">💧${d.precipitation_probability_max[i]}%</div>` : ""}
+        </div>`
+      ).join("");
+    }
+  } catch {
+    if (box) box.innerHTML = `<div class="meta">날씨 정보를 불러오지 못했습니다.</div>`;
+    if (fcBox) fcBox.innerHTML = "";
+  }
+}
+
 // ── 시계 ─────────────────────────────────────────────────────────────────────
 function startClock() {
   if (_clockTimer) clearInterval(_clockTimer);
@@ -192,12 +241,24 @@ function render() {
           ${kpiSection(rows)}
         </section>
 
-        <!-- 시계 -->
-        <section class="dash-section compact">
-          <div class="dash-title"><h2>🕐 현재 시간</h2></div>
-          <div id="dashClockDate" style="font-size:13px;color:var(--muted);margin-bottom:4px"></div>
-          <div id="dashClock" style="font-size:28px;font-weight:700;letter-spacing:-1px;color:var(--ink)"></div>
-        </section>
+        <!-- 날씨 + 시계 -->
+        <div class="dash-top-grid">
+          <section class="dash-section compact" style="margin:0">
+            <div class="dash-title"><h2>🏗️ 시공 기상정보</h2><button class="btn" data-refresh-weather>새로고침</button></div>
+            <div id="dashWeatherContent" class="weather-grid"><div class="meta">기상 정보를 불러오는 중...</div></div>
+            <div class="label" style="margin-top:10px">대구 7일 시공 예보</div>
+            <div id="dashForecastContent" class="forecast-strip"></div>
+          </section>
+          <section class="weather-clock-box" style="margin:0;position:relative;overflow:hidden;min-height:180px">
+            <div id="dashClockBg" style="position:absolute;inset:0;background-size:cover;background-position:center;opacity:0.75;pointer-events:none"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,.38));pointer-events:none"></div>
+            <div style="position:relative;z-index:2;width:100%;text-align:center;padding:16px 0">
+              <div id="dashClockDate" style="font-size:13px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.6px;margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.6)"></div>
+              <div id="dashClock" style="font-size:44px;font-weight:800;letter-spacing:-2px;color:#fff;line-height:1;text-shadow:0 3px 12px rgba(0,0,0,.75)"></div>
+              <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:10px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.5)">Asia/Seoul 기준</div>
+            </div>
+          </section>
+        </div>
 
         <section class="dash-section compact">
           <div class="dash-title"><h2>⚠️ 지연/확인 필요</h2></div>
@@ -254,6 +315,9 @@ function render() {
   });
 
   startClock();
+  loadWeather();
+  const saved = localStorage.getItem("clockBgImage");
+  if (saved) { const el = document.getElementById("dashClockBg"); if (el) el.style.backgroundImage = `url(${saved})`; }
 }
 
 // ── 이벤트 위임 ──────────────────────────────────────────────────────────────
@@ -262,6 +326,7 @@ function onDocClick(e) {
   const panel = document.getElementById("dashboardView");
   if (!panel || panel.classList.contains("hidden")) return;
 
+  if (t.dataset.refreshWeather !== undefined) { loadWeather(); return; }
   if (t.dataset.dashMonth) {
     let m = _calMonth + Number(t.dataset.dashMonth);
     if (m > 12) { m = 1;  _calYear++; }
