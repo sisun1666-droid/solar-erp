@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d9488">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="업무관리">
+  <title>기술지원팀 업무관리</title>
+  <link rel="stylesheet" href="/src/style.css">
+  <script src="https://accounts.google.com/gsi/client" async onload="window._onGisLoaded?.()"></script>
+</head>
+<body>
+
+<!-- ── 오프라인 배너 ─────────────────────────────────────── -->
+<div id="offlineBanner" class="hidden">📡 오프라인 상태입니다. 인터넷 연결을 확인해주세요.</div>
+
+<!-- ── 검색 오버레이 ─────────────────────────────────────── -->
+<div id="searchOverlay" class="hidden">
+  <div class="search-modal">
+    <div class="search-input-wrap">
+      <span class="search-icon">🔍</span>
+      <input id="searchInput" placeholder="검색... (Ctrl+K)" autocomplete="off">
+      <span class="search-shortcut">ESC</span>
+    </div>
+    <div id="searchResults" class="search-results"></div>
+  </div>
+</div>
+
+<!-- ── 로그인 화면 ─────────────────────────────────────────── -->
+<div class="auth-gate hidden" id="authGate">
+  <div class="auth-card">
+    <div class="brand">
+      <span class="kiwoom-wordmark">KIW<span class="kiwoom-loop"></span>M</span>
+    </div>
+    <h1>로그인이 필요합니다</h1>
+    <p class="sub">관리자에 등록된 직원만 사용할 수 있습니다.</p>
+    <div id="authMessage" class="meta"></div>
+    <div class="auth-add-row">
+      <select class="field" id="staffLoginName"><option value="">직원 선택</option></select>
+      <input class="field" id="staffLoginPin" type="password" inputmode="numeric" placeholder="개인 PIN">
+    </div>
+    <div class="auth-actions">
+      <button class="btn primary" id="staffLoginBtn">업무관리 로그인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 앱 본체 ───────────────────────────────────────────── -->
+<div class="app" id="appShell">
+
+  <!-- 사이드바 -->
+  <aside id="sidebar">
+    <div class="brand">
+      <span class="kiwoom-wordmark">KIW<span class="kiwoom-loop"></span>M</span>
+      <span id="brandName" class="brand-text"></span>
+    </div>
+    <nav id="nav">
+      <a data-nav="dashboard">  <span class="nav-icon">△</span>대시보드</a>
+      <a data-nav="todos">      <span class="nav-icon">✓</span>할일·일정</a>
+      <a data-nav="messages">   <span class="nav-icon">✉</span>메시지</a>
+      <a data-nav="reports">    <span class="nav-icon">▣</span>보고서</a>
+      <a data-nav="meetings">   <span class="nav-icon">≡</span>회의록</a>
+      <a data-nav="construction"><span class="nav-icon">●</span>시공일정</a>
+      <a data-nav="assignment">  <span class="nav-icon">⊞</span>시공배분</a>
+      <a data-nav="db">          <span class="nav-icon">≡</span>DB</a>
+      <a data-nav="projects">    <span class="nav-icon">≡</span>프로젝트 파일</a>
+      <a data-nav="mw">          <span class="nav-icon">▣</span>MW</a>
+      <a data-nav="inspection">  <span class="nav-icon">●</span>구조물 검수</a>
+      <a data-nav="knowledge">   <span class="nav-icon">■</span>지식창고</a>
+      <a data-nav="admin">       <span class="nav-icon">⚙</span>관리자</a>
+    </nav>
+  </aside>
+
+  <!-- 메인 콘텐츠 -->
+  <main id="mainContent">
+
+    <!-- 헤더 -->
+    <header>
+      <div>
+        <h1 id="pageTitle">업무관리</h1>
+        <div class="sub" id="pageSub"></div>
+      </div>
+      <div class="header-actions">
+        <div id="syncStatus" class="login-info"></div>
+        <div class="toolbar">
+          <button class="btn icon" id="mobileMenuBtn">☰</button>
+          <button class="btn icon" id="searchBtn" title="검색 (Ctrl+K)">🔍</button>
+          <button class="btn icon" id="darkModeBtn">🌙</button>
+          <button class="btn" id="adminTopBtn">관리자</button>
+          <button class="btn" id="logoutBtn">로그아웃</button>
+          <button class="btn primary" id="maskToggleBtn">마스킹 OFF</button>
+          <button class="btn primary" id="addProjectBtn">신규 현장</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── 뷰 패널들 (data-view로 라우터가 제어) ─────────── -->
+
+    <!-- 대시보드 -->
+    <section data-view="dashboard" class="view hidden" id="dashboardView"></section>
+
+    <!-- 할일·일정 -->
+    <section data-view="todos" class="view hidden" id="todosView"></section>
+
+    <!-- 메시지 -->
+    <section data-view="messages" class="view hidden" id="messagesView"></section>
+
+    <!-- 보고서 -->
+    <section data-view="reports" class="view hidden" id="reportsView"></section>
+
+    <!-- 회의록 -->
+    <section data-view="meetings" class="view hidden" id="meetingsView"></section>
+
+    <!-- 시공일정 -->
+    <section data-view="construction" class="view hidden" id="constructionView"></section>
+
+    <!-- 시공배분 -->
+    <section data-view="assignment" class="view hidden" id="assignmentView"></section>
+
+    <!-- DB -->
+    <section data-view="db" class="view hidden" id="dbView"></section>
+
+    <!-- 프로젝트 파일 -->
+    <section data-view="projects" class="view hidden" id="projectsView"></section>
+
+    <!-- MW -->
+    <section data-view="mw" class="view hidden" id="mwView"></section>
+
+    <!-- 구조물 검수 -->
+    <section data-view="inspection" class="view hidden" id="inspectionView"></section>
+
+    <!-- 지식창고 -->
+    <section data-view="knowledge" class="view hidden" id="knowledgeView"></section>
+
+    <!-- 관리자 -->
+    <section data-view="admin" class="view hidden" id="adminView"></section>
+
+  </main>
+</div>
+
+<!-- ── 모달들 ──────────────────────────────────────────────── -->
+
+<!-- 할일 모달 -->
+<div class="overlay hidden" id="todoModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>할일</h2>
+      <button class="btn icon" data-close-modal="todoModal">×</button>
+    </div>
+    <div class="form-grid" id="todoFormGrid"></div>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="btn primary" id="saveTodoBtn">저장</button>
+      <button class="btn" id="kakaoTodoBtn">카톡 메시지</button>
+      <button class="btn danger hidden" id="deleteTodoBtn">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 시공일정 모달 -->
+<div class="overlay hidden" id="constructionModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>시공일정</h2>
+      <button class="btn icon" data-close-modal="constructionModal">×</button>
+    </div>
+    <div class="form-grid" id="constructionFormGrid"></div>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="btn primary" id="saveConstructionBtn">저장</button>
+      <button class="btn danger hidden" id="deleteConstructionBtn">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 일정(assignment) 모달 -->
+<div class="overlay hidden" id="assignmentModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>일정</h2>
+      <button class="btn icon" data-close-modal="assignmentModal">×</button>
+    </div>
+    <div class="form-grid" id="assignmentFormGrid"></div>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="btn primary" id="saveAssignmentBtn">저장</button>
+      <button class="btn danger hidden" id="deleteAssignmentBtn">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 카톡 메시지 모달 -->
+<div class="overlay hidden" id="kakaoModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>카톡 메시지</h2>
+      <button class="btn icon" data-close-modal="kakaoModal">×</button>
+    </div>
+    <textarea class="field" id="kakaoText" style="min-height:240px"></textarea>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="btn primary" id="copyKakaoBtn">복사</button>
+      <button class="btn" id="openKakaoBtn">카톡 열기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 지식창고 노트 모달 (모바일용 풀스크린) -->
+<div class="overlay hidden" id="knowledgeModal">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h2 id="knowledgeModalTitle">노트</h2>
+      <button class="btn icon" data-close-modal="knowledgeModal">×</button>
+    </div>
+    <div id="knowledgeModalBody"></div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- ── 앱 진입점 ─────────────────────────────────────────── -->
+<script type="module" src="/src/main.js"></script>
+
+</body>
+</html>

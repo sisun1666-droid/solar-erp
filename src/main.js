@@ -1,0 +1,30 @@
+import { initStore } from "./store/index.js";
+import { initRouter } from "./router.js";
+import { initGcal   } from "./features/gcal.js";
+import { initTodos  } from "./features/todos.js";
+
+// 모달 닫기 공통 핸들러 (data-close-modal 속성)
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-close-modal]");
+  if (btn) {
+    const id = btn.dataset.closeModal;
+    const m = document.getElementById(id);
+    m?.classList.remove("open");
+    m?.classList.add("hidden");
+  }
+  // 오버레이 클릭으로 닫기
+  if (e.target.classList.contains("overlay")) {
+    e.target.classList.remove("open");
+    e.target.classList.add("hidden");
+  }
+});
+
+async function boot() {
+  await initStore();
+  initRouter();
+  initGcal();
+  initTodos();
+  console.log("[app] booted ✓");
+}
+
+boot().catch(console.error);
