@@ -342,7 +342,7 @@ function renderMw()        {
   if (!el) return;
   const st = getState();
   const con = st.construction || [];
-  const totalKw = con.reduce((s, c) => s + (Number(c.kw)||0), 0);
+  const totalKw = Math.round(con.reduce((s, c) => s + (Number(c.kw)||0), 0) * 100) / 100;
   const mw = (totalKw / 1000).toFixed(3);
   el.innerHTML = `
     <div class="kpis" style="margin-bottom:16px">

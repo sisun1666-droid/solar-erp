@@ -75,7 +75,7 @@ function kpiSection(rows) {
   const done  = rows.filter(c => c.status === "완료").length;
   const active = rows.filter(c => c.status === "시공중").length;
   const late  = rows.filter(c => c.status === "지연").length;
-  const kw    = rows.reduce((s, c) => s + (Number(c.kw) || 0), 0);
+  const kw    = Math.round(rows.reduce((s, c) => s + (Number(c.kw) || 0), 0) * 100) / 100;
   const phases = st.constructionPhases || [];
   const teams  = st.constructionTeams  || [];
   const maxPhase = Math.max(1, ...phases.map(p => rows.filter(c => c.phase === p).length));

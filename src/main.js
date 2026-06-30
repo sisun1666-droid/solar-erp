@@ -26,7 +26,7 @@ document.addEventListener("click", e => {
 
 async function boot() {
   await initStore();
-  initRouter();
+  // 피처 먼저 등록 → 그 다음 router가 초기 viewChanged 발사
   initGcal();
   initTodos();
   initAssignment();
@@ -35,6 +35,7 @@ async function boot() {
   initKnowledge();
   initMisc();
   initAdmin();
+  initRouter();
   console.log("[app] booted ✓");
 }
 
