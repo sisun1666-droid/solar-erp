@@ -898,6 +898,8 @@ export function initMisc() {
 
   on("stateChange", () => {
     Object.entries(map).forEach(([viewId, fn]) => {
+      // 메시지·보고서는 폼 입력값이 있어서 stateChange 재렌더 제외
+      if (viewId === "messages" || viewId === "reports") return;
       ifVisible(viewId + "View", fn);
     });
   });
