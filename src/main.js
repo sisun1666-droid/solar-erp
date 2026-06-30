@@ -6,6 +6,8 @@ import { initAssignment } from "./features/assignment.js";
 import { initConstruction } from "./features/construction.js";
 import { initDashboard    } from "./features/dashboard.js";
 import { initKnowledge   } from "./features/knowledge.js";
+import { initMisc       } from "./features/misc.js";
+import { initAdmin      } from "./features/admin.js";
 
 // 모달 닫기 공통 핸들러
 document.addEventListener("click", e => {
@@ -31,6 +33,8 @@ async function boot() {
   initConstruction();
   initDashboard();
   initKnowledge();
+  initMisc();
+  initAdmin();
   console.log("[app] booted ✓");
 }
 
