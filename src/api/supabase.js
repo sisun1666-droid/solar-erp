@@ -32,6 +32,7 @@ const TABLE_MAP = {
   construction:        "construction",
   projects:            "projects",
   meetings:            "meetings",
+  messages:            "messages",
   fieldworkLogs:       "fieldwork_logs",
   structureInspections:"structure_inspections",
 };
@@ -39,7 +40,7 @@ const TABLE_MAP = {
 export const TABLES = Object.keys(TABLE_MAP);
 
 export async function loadAllTables() {
-  const results = await Promise.all(TABLES.map(t => db.get(TABLE_MAP[t], "select=id,data")));
+  const results = await Promise.all(TABLES.map(t => db.get(TABLE_MAP[t], "select=id,data").catch(() => [])));
   return Object.fromEntries(TABLES.map((t, i) => [t, (results[i] ?? []).map(r => r.data)]));
 }
 

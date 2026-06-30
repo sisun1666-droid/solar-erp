@@ -3,7 +3,7 @@ import { loadAllTables, saveTable, config, TABLES } from "../api/supabase.js";
 // ── 기본 상태 ────────────────────────────────────────────────────────────
 const DEFAULT = {
   todos: [], assignments: [], construction: [], projects: [],
-  meetings: [], fieldworkLogs: [], structureInspections: [],
+  meetings: [], messages: [], fieldworkLogs: [], structureInspections: [],
   gcalClientId: "", gcalCalendarId: "", gcalSyncColor: "",
   gcalToken: "", gcalTokenExpiry: 0,
   currentUser: "", userRole: "",
