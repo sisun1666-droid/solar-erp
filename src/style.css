@@ -610,7 +610,7 @@ body.todo-page{overflow-y:auto}
         padding:22px 18px;
         box-shadow:8px 0 28px rgba(45,10,28,.04);
       }
-      nav a[data-nav].active{
+      aside nav a[data-nav].active{
         background:linear-gradient(135deg,var(--teal),var(--teal-dark));
         color:#fff;
       }
