@@ -5,7 +5,7 @@ import { goTo } from "../router.js";
 
 const PASTEL = ["#8ecae6","#ffb5a7","#b8e0d2","#f6d186","#cdb4db","#a7c7e7","#ffd6a5","#caffbf","#bde0fe","#ffc8dd"];
 const DAY_NAMES = ["일","월","화","수","목","금","토"];
-const TYPE_COLORS = { 일반업무:"#8ecae6", 서류요청:"#f6d186", 현장방문:"#b8e0d2", 외부미팅:"#cdb4db", 기타:"#ffb5a7" };
+const URGENCY_COLORS = { overdue: "#ef4444", today: "#f59e0b", normal: "#0d9488" };
 const CELL_CAP = 3;
 
 let _personFilter = "전체";
@@ -23,7 +23,12 @@ function personColor(name) {
   return PASTEL[Math.max(0, idx) % PASTEL.length];
 }
 
-function typeColor(type) { return TYPE_COLORS[type] || "#cbd5e1"; }
+function urgencyColor(a) {
+  if (a.status === "완료" || !a.due) return URGENCY_COLORS.normal;
+  if (a.due < today())  return URGENCY_COLORS.overdue;
+  if (a.due === today()) return URGENCY_COLORS.today;
+  return URGENCY_COLORS.normal;
+}
 
 function localDate(d) {
   const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), dd = String(d.getDate()).padStart(2,"0");
@@ -31,7 +36,7 @@ function localDate(d) {
 }
 
 function taskHtml(a, idx) {
-  const c = typeColor(a.type);
+  const c = urgencyColor(a);
   return `<div class="calendar-task" style="border-left-color:${esc(c)}"
     data-open-assignment="${idx}" title="${esc(a.owner)} · ${esc(a.title)} · ${esc(a.status)} · ${esc(a.priority)}">
     <span class="color-dot" style="background:${esc(c)}"></span>${esc(a.title)}
