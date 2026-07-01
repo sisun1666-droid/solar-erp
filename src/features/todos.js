@@ -1,7 +1,5 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast } from "../utils/index.js";
-
-const $ = id => document.getElementById(id);
+import { genId, today, esc, toast, $ } from "../utils/index.js";
 
 // ── 상태 ───────────────────────────────────────────────────────────────────
 let _editingTodo = null;       // null = 새 항목, number = 인덱스

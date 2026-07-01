@@ -24,31 +24,12 @@ export function toast(msg, duration = 2500) {
   _toastTimer = setTimeout(() => { el.style.opacity = "0"; }, duration);
 }
 
-// DOM 헬퍼
-export const $ = sel => document.querySelector(sel);
+// DOM 헬퍼 (feature 파일들이 실제로 쓰는 건 id 기반 조회라 이 시그니처로 통일)
+export const $ = id => document.getElementById(id);
 export const $$ = sel => [...document.querySelectorAll(sel)];
-
-// 날짜 포맷
-export function formatDate(dateStr) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr + "T00:00:00+09:00");
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
 
 // kW → MW 변환
 export function kwDisplay(kw) {
   if (!kw) return "0kW";
   return kw >= 1000 ? `${(kw / 1000).toFixed(2)}MW` : `${kw}kW`;
 }
-
-// 상태 색상
-export const STATUS_COLORS = {
-  "예정":   { bg: "#e0f2fe", text: "#0369a1" },
-  "시공중": { bg: "#fef9c3", text: "#854d0e" },
-  "완료":   { bg: "#dcfce7", text: "#166534" },
-  "지연":   { bg: "#fee2e2", text: "#991b1b" },
-  "취소":   { bg: "#f1f5f9", text: "#64748b" },
-  "할 일":  { bg: "#e0f2fe", text: "#0369a1" },
-  "진행중": { bg: "#fef9c3", text: "#854d0e" },
-  "백로그": { bg: "#f1f5f9", text: "#64748b" },
-};

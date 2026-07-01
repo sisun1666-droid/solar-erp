@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="업무관리">
   <title>기술지원팀 업무관리</title>
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/src/style.css">
   <script src="https://accounts.google.com/gsi/client" async onload="window._onGisLoaded?.()"></script>
 </head>
@@ -51,6 +52,8 @@
 <!-- ── 앱 본체 ───────────────────────────────────────────── -->
 <div class="app" id="appShell">
 
+  <div id="sidebarOverlay"></div>
+
   <!-- 사이드바 -->
   <aside id="sidebar">
     <div class="brand">
@@ -65,9 +68,7 @@
       <a data-nav="meetings">   <span class="nav-icon">≡</span>회의록</a>
       <a data-nav="construction"><span class="nav-icon">●</span>시공일정</a>
       <a data-nav="assignment">  <span class="nav-icon">⊞</span>시공배분</a>
-      <a data-nav="db">          <span class="nav-icon">≡</span>DB</a>
-      <a data-nav="projects">    <span class="nav-icon">≡</span>프로젝트 파일</a>
-      <a data-nav="mw">          <span class="nav-icon">▣</span>MW</a>
+      <a data-nav="db">          <span class="nav-icon">≡</span>프로젝트 DB</a>
       <a data-nav="inspection">  <span class="nav-icon">●</span>구조물 검수</a>
       <a data-nav="knowledge">   <span class="nav-icon">■</span>지식창고</a>
       <a data-nav="admin">       <span class="nav-icon">⚙</span>관리자</a>
@@ -120,14 +121,8 @@
     <!-- 시공배분 -->
     <section data-view="assignment" class="view hidden" id="assignmentView"></section>
 
-    <!-- DB -->
+    <!-- 프로젝트 DB -->
     <section data-view="db" class="view hidden" id="dbView"></section>
-
-    <!-- 프로젝트 파일 -->
-    <section data-view="projects" class="view hidden" id="projectsView"></section>
-
-    <!-- MW -->
-    <section data-view="mw" class="view hidden" id="mwView"></section>
 
     <!-- 구조물 검수 -->
     <section data-view="inspection" class="view hidden" id="inspectionView"></section>
@@ -200,6 +195,21 @@
     <div class="toolbar" style="margin-top:14px">
       <button class="btn primary" id="copyKakaoBtn">복사</button>
       <button class="btn" id="openKakaoBtn">카톡 열기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 구조물검수 모달 -->
+<div class="overlay hidden" id="inspectionModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>구조물 검수</h2>
+      <button class="btn icon" data-close-modal="inspectionModal">×</button>
+    </div>
+    <div class="form-grid" id="inspectionFormGrid"></div>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="btn primary" id="saveInspectionBtn">저장</button>
+      <button class="btn danger hidden" id="deleteInspectionBtn">삭제</button>
     </div>
   </div>
 </div>

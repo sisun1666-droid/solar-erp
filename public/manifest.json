@@ -1,0 +1,12 @@
+{
+  "name": "기술지원팀 업무관리",
+  "short_name": "업무관리",
+  "start_url": "/solar-erp/",
+  "scope": "/solar-erp/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d9488",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -33,6 +33,7 @@ const TABLE_MAP = {
   projects:            "projects",
   meetings:            "meetings",
   messages:            "messages",
+  reports:             "reports",
   fieldworkLogs:       "fieldwork_logs",
   structureInspections:"structure_inspections",
 };

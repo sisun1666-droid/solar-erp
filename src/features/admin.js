@@ -19,6 +19,18 @@ export const DEFAULTS = {
   gcalCalendarId:     "primary",
 };
 
+// 브랜드/제목을 헤더·탭 제목에 반영 (원격 기기의 admin 수정도 stateChange로 실시간 반영)
+export function applyBranding() {
+  const st = getState();
+  document.title = st.title || "업무관리";
+  const titleEl = document.getElementById("pageTitle");
+  const subEl   = document.getElementById("pageSub");
+  const brandEl = document.getElementById("brandName");
+  if (titleEl) titleEl.textContent = st.title || "업무관리";
+  if (subEl)   subEl.textContent   = st.subtitle || "";
+  if (brandEl) brandEl.textContent = st.brand || "";
+}
+
 // 상태 정규화 (store 초기 로드 후 1회 실행)
 export function normalizeState() {
   const st = getState();
@@ -147,7 +159,6 @@ function bindEvents(panel) {
       adminPin: document.getElementById("adminPin")?.value || "1234",
     });
     toast("기본 설정을 저장했습니다.");
-    document.title = getState().title || "업무관리";
   });
 
   // 직원 추가
@@ -224,6 +235,7 @@ function bindEvents(panel) {
 
 // ── 초기화 ───────────────────────────────────────────────────────────────────
 export function initAdmin() {
-  normalizeState();
+  applyBranding();
+  on("stateChange", applyBranding);
   on("viewChanged", ({ view }) => { if (view === "admin") render(); });
 }

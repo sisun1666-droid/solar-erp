@@ -1,7 +1,8 @@
 import { getState, on } from "../store/index.js";
-import { esc, today } from "../utils/index.js";
+import { esc, today, kwDisplay } from "../utils/index.js";
 import { openTodoModal } from "./todos.js";
 import { openAssignModal } from "./todos.js";
+import { openConstructionModal } from "./construction.js";
 
 let _calYear  = new Date().getFullYear();
 let _calMonth = new Date().getMonth() + 1;
@@ -69,13 +70,14 @@ function smallBar(label, val, total, color = "#0d9488") {
   </div>`;
 }
 
-function kpiSection(rows) {
+function kpiSection(rows, allRows = rows) {
   const st = getState();
   const total = rows.length;
   const done  = rows.filter(c => c.status === "완료").length;
   const active = rows.filter(c => c.status === "시공중").length;
   const late  = rows.filter(c => c.status === "지연").length;
   const kw    = Math.round(rows.reduce((s, c) => s + (Number(c.kw) || 0), 0) * 100) / 100;
+  const totalKw = Math.round(allRows.reduce((s, c) => s + (Number(c.kw) || 0), 0) * 100) / 100;
   const phases = st.constructionPhases || [];
   const teams  = st.constructionTeams  || [];
   const maxPhase = Math.max(1, ...phases.map(p => rows.filter(c => c.phase === p).length));
@@ -100,7 +102,8 @@ function kpiSection(rows) {
     </div>
     <div class="dash-section compact">
       <div class="label">월간 시공 물량</div>
-      <div class="value" style="font-size:22px">${kw}kW</div>
+      <div class="value" style="font-size:22px">${kwDisplay(kw)}</div>
+      <div class="meta">누적 ${kwDisplay(totalKw)}</div>
       ${teams.slice(0,3).map(t => smallBar(t, rows.filter(c => c.company === t).length, maxTeam)).join("")}
     </div>
   </div>`;
@@ -238,7 +241,7 @@ function render() {
           <div class="dash-title">
             <h2>📊 ${ym} 시공관리 현황</h2>
           </div>
-          ${kpiSection(rows)}
+          ${kpiSection(rows, allCon)}
         </section>
 
         <!-- 날씨 + 시계 -->
@@ -336,8 +339,8 @@ function onDocClick(e) {
   }
   if (t.dataset.dashDate)    { _selDate = t.dataset.dashDate; render(); return; }
   if (t.dataset.dashToday)   { _selDate = today(); render(); return; }
-  if (t.dataset.dashAddCon)  { /* 시공일정 추가는 construction 모듈이 처리 */ return; }
-  if (t.dataset.dashCon)     { /* 시공일정 클릭: 나중에 construction 모듈과 연결 */ return; }
+  if (t.dataset.dashAddCon)  { openConstructionModal(); return; }
+  if (t.dataset.dashCon)     { openConstructionModal(Number(t.dataset.dashCon)); return; }
   if (t.dataset.editTodo !== undefined)    openTodoModal(Number(t.dataset.editTodo));
   if (t.dataset.openAssignment !== undefined) openAssignModal(Number(t.dataset.openAssignment));
 }

@@ -7,7 +7,6 @@ const SB_ID  = "knowledge";
 const CATS   = ["업무방법", "자재/발주", "현장/고객", "법규/제도", "태양광 인허가", "시공기술", "전기/한전", "구조물"];
 
 let _notes  = [];
-let _loaded = false;
 let _query  = "";
 let _cat    = "";
 let _selId  = null;
@@ -18,7 +17,6 @@ function loadLocal() {
 }
 
 async function loadFromServer() {
-  if (_loaded) return;
   try {
     const data = await config.get(SB_ID);
     if (data?.notes?.length) {
@@ -26,7 +24,6 @@ async function loadFromServer() {
       localStorage.setItem(LS_KEY, JSON.stringify(_notes));
     }
   } catch {}
-  _loaded = true;
 }
 
 async function save() {

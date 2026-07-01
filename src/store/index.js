@@ -3,7 +3,7 @@ import { loadAllTables, saveTable, config, TABLES } from "../api/supabase.js";
 // ── 기본 상태 ────────────────────────────────────────────────────────────
 const DEFAULT = {
   todos: [], assignments: [], construction: [], projects: [],
-  meetings: [], messages: [], fieldworkLogs: [], structureInspections: [],
+  meetings: [], messages: [], reports: [], fieldworkLogs: [], structureInspections: [],
   gcalClientId: "", gcalCalendarId: "", gcalSyncColor: "",
   gcalToken: "", gcalTokenExpiry: 0,
   currentUser: "", userRole: "",
@@ -11,6 +11,7 @@ const DEFAULT = {
 
 let _state   = { ...DEFAULT };
 let _pending = {};            // 어떤 테이블이 dirty한지 추적
+let _configDirty = false;     // TABLES 밖의 필드(관리자 설정 등)가 dirty한지 추적
 
 // ── 이벤트 버스 (IIFE 래핑 대체) ────────────────────────────────────────
 const _listeners = {};
@@ -28,6 +29,8 @@ export function setState(patch, { silent = false } = {}) {
 
   // 어떤 테이블이 변경됐는지 추적
   TABLES.forEach(t => { if (patch[t] && patch[t] !== prev[t]) _pending[t] = true; });
+  // TABLES 밖의 필드(brand/adminPin/people 등 관리자 설정 전부)가 바뀌면 config 저장 대상
+  if (Object.keys(patch).some(k => !TABLES.includes(k))) _configDirty = true;
 
   if (!silent) emit("stateChange", { state: _state, patch });
   scheduleSave();
@@ -51,6 +54,7 @@ function loadLocal() {
 const TOMB_KEY = "solar-erp-tombs-v1";
 const TOMB_TTL = 365 * 24 * 60 * 60 * 1000;
 let _tombs = {};
+let _tombsDirty = false;
 
 function loadTombs() {
   try { _tombs = JSON.parse(localStorage.getItem(TOMB_KEY) || "{}"); } catch (e) {}
@@ -62,6 +66,8 @@ function saveTombs() {
 export function markDeleted(table, id) {
   (_tombs[table] ??= {})[id] = Date.now();
   saveTombs();
+  _tombsDirty = true;
+  scheduleSave();
 }
 
 export function wasDeleted(table, id) {
@@ -81,44 +87,62 @@ function scheduleSave() {
 async function flushSave() {
   _saveTimer = null;
   const tables = Object.keys(_pending);
-  if (!tables.length) return;
+  if (!tables.length && !_configDirty && !_tombsDirty) return;
   _pending = {};
+  emit("saveStart");
 
   saveLocal();
 
-  for (const table of tables) {
-    const items     = _state[table] ?? [];
-    const currentIds = new Set(items.map(x => x.id).filter(Boolean));
-    const prevIds    = _svrIds[table] ?? new Set();
-    const deletedIds = [...prevIds].filter(id => !currentIds.has(id) && wasDeleted(table, id));
+  if (tables.length) {
+    for (const table of tables) {
+      const items     = _state[table] ?? [];
+      const currentIds = new Set(items.map(x => x.id).filter(Boolean));
+      const prevIds    = _svrIds[table] ?? new Set();
+      const deletedIds = [...prevIds].filter(id => !currentIds.has(id) && wasDeleted(table, id));
 
-    try {
-      await saveTable(table, items, deletedIds);
-      _svrIds[table] = currentIds;
-    } catch (e) {
-      console.warn(`[store] save failed for ${table}:`, e);
+      try {
+        await saveTable(table, items, deletedIds);
+        _svrIds[table] = currentIds;
+      } catch (e) {
+        console.warn(`[store] save failed for ${table}:`, e);
+      }
     }
   }
 
-  // config (gcal 토큰 등 메타 필드)도 저장
-  await config.set("shared", {
-    gcalClientId:    _state.gcalClientId,
-    gcalCalendarId:  _state.gcalCalendarId,
-    gcalSyncColor:   _state.gcalSyncColor,
-    gcalToken:       _state.gcalToken,
-    gcalTokenExpiry: _state.gcalTokenExpiry,
-    currentUser:     _state.currentUser,
-    userRole:        _state.userRole,
-  }).catch(() => {});
+  if (_configDirty) {
+    _configDirty = false;
+    // TABLES 밖의 필드 전부(관리자 설정, gcal, 세션 등) — 필드가 늘어나도 자동으로 동기화됨
+    const configPatch = Object.fromEntries(Object.entries(_state).filter(([k]) => !TABLES.includes(k)));
+    await config.set("shared", configPatch).catch(() => {});
+  }
+
+  if (_tombsDirty) {
+    _tombsDirty = false;
+    await config.set("tombstones", _tombs).catch(() => {});
+  }
+
+  emit("saveComplete");
 }
 
 // ── Supabase에서 최신 데이터 로드 ────────────────────────────────────────
 export async function syncFromServer() {
   try {
-    const [tables, meta] = await Promise.all([
+    const [tables, meta, serverTombs] = await Promise.all([
       loadAllTables(),
       config.get("shared"),
+      config.get("tombstones"),
     ]);
+
+    // 삭제 기록(tombstone) 병합 — 테이블/id별로 더 최근 타임스탬프를 채택
+    if (serverTombs) {
+      for (const table of Object.keys(serverTombs)) {
+        for (const [id, ts] of Object.entries(serverTombs[table] || {})) {
+          const localTs = _tombs[table]?.[id];
+          if (!localTs || ts > localTs) (_tombs[table] ??= {})[id] = ts;
+        }
+      }
+      saveTombs();
+    }
 
     const merged = {};
 
@@ -135,13 +159,8 @@ export async function syncFromServer() {
       _svrIds[table] = new Set(serverItems.map(x => x.id));
     });
 
-    const metaPatch = meta ? {
-      gcalClientId:    meta.gcalClientId    ?? _state.gcalClientId,
-      gcalCalendarId:  meta.gcalCalendarId  ?? _state.gcalCalendarId,
-      gcalSyncColor:   meta.gcalSyncColor   ?? _state.gcalSyncColor,
-      gcalToken:       meta.gcalToken       ?? _state.gcalToken,
-      gcalTokenExpiry: meta.gcalTokenExpiry ?? _state.gcalTokenExpiry,
-    } : {};
+    // config에 저장된 모든 필드(관리자 설정 포함)를 복원 — 테이블(배열) 키와는 겹치지 않음
+    const metaPatch = meta ? { ...meta } : {};
 
     setState({ ...merged, ...metaPatch }, { silent: true });
     saveLocal();

@@ -1,7 +1,5 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast } from "../utils/index.js";
-
-const $ = id => document.getElementById(id);
+import { genId, today, esc, toast, $ } from "../utils/index.js";
 
 let _editing = null;
 let _search  = "";
@@ -347,6 +345,8 @@ function onDocClick(e) {
     render();
   }
 }
+
+export const openConstructionModal = openModal;
 
 export function initConstruction() {
   document.addEventListener("click", onDocClick);

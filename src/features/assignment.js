@@ -1,8 +1,6 @@
 import { getState, on } from "../store/index.js";
-import { esc, today } from "../utils/index.js";
+import { esc, today, $ } from "../utils/index.js";
 import { openAssignModal } from "./todos.js";
-
-const $ = id => document.getElementById(id);
 
 const PASTEL = ["#8ecae6","#ffb5a7","#b8e0d2","#f6d186","#cdb4db","#a7c7e7","#ffd6a5","#caffbf","#bde0fe","#ffc8dd"];
 const DAY_NAMES = ["일","월","화","수","목","금","토"];
