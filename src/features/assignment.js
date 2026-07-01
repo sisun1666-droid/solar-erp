@@ -5,11 +5,14 @@ import { goTo } from "../router.js";
 
 const PASTEL = ["#8ecae6","#ffb5a7","#b8e0d2","#f6d186","#cdb4db","#a7c7e7","#ffd6a5","#caffbf","#bde0fe","#ffc8dd"];
 const DAY_NAMES = ["일","월","화","수","목","금","토"];
+const TYPE_COLORS = { 일반업무:"#8ecae6", 서류요청:"#f6d186", 현장방문:"#b8e0d2", 외부미팅:"#cdb4db", 기타:"#ffb5a7" };
+const CELL_CAP = 3;
 
 let _personFilter = "전체";
 let _calYear  = new Date().getFullYear();
 let _calMonth = new Date().getMonth() + 1;  // 1-indexed
 let _view = "month";  // "month" | "week" | "day"
+let _expandedDays = new Set();
 
 function personColor(name) {
   const st = getState();
@@ -20,19 +23,43 @@ function personColor(name) {
   return PASTEL[Math.max(0, idx) % PASTEL.length];
 }
 
+function typeColor(type) { return TYPE_COLORS[type] || "#cbd5e1"; }
+
 function localDate(d) {
   const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), dd = String(d.getDate()).padStart(2,"0");
   return `${y}-${m}-${dd}`;
 }
 
 function taskHtml(a, idx) {
-  const c = personColor(a.owner);
-  const bg = c + "38";
-  return `<div class="calendar-task" style="border-left-color:${esc(c)};background:${esc(bg)};cursor:pointer"
-    data-open-assignment="${idx}" title="${esc(a.detail || a.title)}">
-    <span class="color-dot" style="background:${esc(c)}"></span>
-    ${esc(a.owner)} · ${esc(a.title)}<br>${esc(a.status)} · ${esc(a.priority)}
+  const c = typeColor(a.type);
+  return `<div class="calendar-task" style="border-left-color:${esc(c)}"
+    data-open-assignment="${idx}" title="${esc(a.owner)} · ${esc(a.title)} · ${esc(a.status)} · ${esc(a.priority)}">
+    <span class="color-dot" style="background:${esc(c)}"></span>${esc(a.title)}
   </div>`;
+}
+
+function dayCellHtml(iso, tasks, extraClass = "") {
+  const cls = ["day-cell", extraClass, iso === today() ? "today" : ""].filter(Boolean).join(" ");
+  const expanded = _expandedDays.has(iso);
+  const shown = expanded ? tasks : tasks.slice(0, CELL_CAP);
+  const rest = tasks.length - shown.length;
+  const toggle = expanded
+    ? (tasks.length > CELL_CAP ? `<button class="cal-more" data-cal-collapse="${esc(iso)}">접기</button>` : "")
+    : (rest > 0 ? `<button class="cal-more" data-cal-expand="${esc(iso)}">+${rest}개 더</button>` : "");
+  return `<div class="${cls}">
+    <div class="day-number">${Number(iso.slice(-2))}</div>
+    ${shown.map(t => taskHtml(t, t.__idx)).join("")}
+    ${toggle}
+  </div>`;
+}
+
+function tasksFor(assigns, iso) {
+  return assigns
+    .map((a, i) => ({ ...a, __idx: i }))
+    .filter(a =>
+      (_personFilter === "전체" || a.owner === _personFilter) &&
+      (a.start === iso || a.due === iso)
+    );
 }
 
 function buildCalendar() {
@@ -52,15 +79,7 @@ function buildCalendar() {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       const iso = localDate(d);
-      const tasks = assigns.filter(a =>
-        (_personFilter === "전체" || a.owner === _personFilter) &&
-        (a.start === iso || a.due === iso)
-      );
-      const idx = assigns;
-      html += `<div class="day-cell ${d.getMonth() !== m ? "muted" : ""}">
-        <div class="day-number">${d.getDate()}</div>
-        ${tasks.map(t => taskHtml(t, assigns.indexOf(t))).join("")}
-      </div>`;
+      html += dayCellHtml(iso, tasksFor(assigns, iso), d.getMonth() !== m ? "muted" : "");
     }
   } else if (_view === "week") {
     const now = new Date(y, m, 1);
@@ -71,25 +90,11 @@ function buildCalendar() {
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + i);
       const iso = localDate(d);
-      const tasks = assigns.filter(a =>
-        (_personFilter === "전체" || a.owner === _personFilter) &&
-        (a.start === iso || a.due === iso)
-      );
-      html += `<div class="day-cell">
-        <div class="day-number">${d.getDate()}</div>
-        ${tasks.map(t => taskHtml(t, assigns.indexOf(t))).join("")}
-      </div>`;
+      html += dayCellHtml(iso, tasksFor(assigns, iso));
     }
   } else {
     const iso = `${y}-${String(m+1).padStart(2,"0")}-01`;
-    const tasks = assigns.filter(a =>
-      (_personFilter === "전체" || a.owner === _personFilter) &&
-      (a.start === iso || a.due === iso)
-    );
-    html = `<div class="day-name">일정</div>
-      <div class="day-cell" style="min-height:300px">
-        ${tasks.map(t => taskHtml(t, assigns.indexOf(t))).join("")}
-      </div>`;
+    html = `<div class="day-name">일정</div>` + dayCellHtml(iso, tasksFor(assigns, iso), "day-view");
   }
 
   return { html, cols: _view === "day" ? "1fr" : "repeat(7,minmax(0,1fr))" };
@@ -166,6 +171,8 @@ function onDocClick(e) {
   if (t.id === "assignGoTodoBtn") { goTo("todos"); return; }
   if (t.dataset.assignPerson)    { _personFilter = t.dataset.assignPerson; render(); return; }
   if (t.dataset.assignView)      { _view = t.dataset.assignView; render(); return; }
+  if (t.dataset.calExpand)       { _expandedDays.add(t.dataset.calExpand); render(); return; }
+  if (t.dataset.calCollapse)     { _expandedDays.delete(t.dataset.calCollapse); render(); return; }
   if (t.dataset.openAssignment !== undefined) {
     openAssignModal(Number(t.dataset.openAssignment));
   }
