@@ -8,6 +8,7 @@ let _editingTodo = null;       // null = 새 항목, number = 인덱스
 let _editingAssign = null;
 let _statusFilter = "전체";
 let _ownerFilter  = "전체";
+let _completedExpanded = false;
 
 const STATUSES  = ["백로그", "할 일", "진행중", "완료", "취소"];
 const PRIORITIES = ["보통", "높음", "긴급", "낮음"];
@@ -258,14 +259,17 @@ function renderBoard() {
           </div>`).join("")
       : `<div class="meta" style="font-size:12px;padding:8px 4px">비어 있음</div>`;
 
+    const isDone = s === "완료";
     return `
-      <div class="todo-column" data-todo-drop-status="${esc(s)}">
-        <div class="todo-column-head"
+      <div class="todo-column${isDone && _completedExpanded ? " expanded" : ""}" data-status="${esc(s)}" data-todo-drop-status="${esc(s)}">
+        <div class="todo-column-head${isDone ? " todo-column-toggle" : ""}"
+          ${isDone ? `data-todo-toggle-completed="1"` : ""}
           style="background:${COL_STYLE.hbg[s]};color:${COL_STYLE.htx[s]}">
+          ${isDone ? `<span class="todo-column-toggle-icon">▶</span>` : ""}
           <span>${esc(s)}</span>
           <span class="count">${rows.length}</span>
         </div>
-        ${cards}
+        <div class="todo-cards-wrap">${cards}</div>
         <button class="btn" style="width:100%;font-size:12px;margin-top:4px"
           data-add-todo-status="${esc(s)}">+ 빠른 추가</button>
       </div>`;
@@ -510,7 +514,7 @@ function closeAssignModal() {
 
 // ── 이벤트 위임 ─────────────────────────────────────────────────────────────
 function onDocClick(e) {
-  const t = e.target.closest("button") || e.target;
+  const t = e.target.closest("button, [data-todo-toggle-completed]") || e.target;
 
   if (t.id === "todoAddBtn")              return openTodoModal();
   if (t.id === "todoGoCalendarBtn")       return goTo("assignment");
@@ -518,6 +522,7 @@ function onDocClick(e) {
   if (t.dataset.editTodo !== undefined)   return openTodoModal(Number(t.dataset.editTodo));
   if (t.dataset.todoStatusFilter)         { _statusFilter = t.dataset.todoStatusFilter; renderBoard(); return; }
   if (t.dataset.todoOwnerFilter)          { _ownerFilter  = t.dataset.todoOwnerFilter;  renderBoard(); return; }
+  if (t.dataset.todoToggleCompleted)      { _completedExpanded = !_completedExpanded;   renderBoard(); return; }
   if (t.id === "saveTodoBtn")             return saveTodo();
   if (t.id === "deleteTodoBtn") {
     if (_editingTodo !== null && confirm("이 할일과 연결된 일정을 함께 삭제할까요?")) {

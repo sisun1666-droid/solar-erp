@@ -37,7 +37,7 @@ function localDate(d) {
 
 function taskHtml(a, idx) {
   const c = urgencyColor(a);
-  return `<div class="calendar-task" style="border-left-color:${esc(c)}"
+  return `<div class="calendar-task" style="border-left-color:${esc(c)};background:${esc(c)}1c"
     data-open-assignment="${idx}" title="${esc(a.owner)} · ${esc(a.title)} · ${esc(a.status)} · ${esc(a.priority)}">
     <span class="color-dot" style="background:${esc(c)}"></span>${esc(a.title)}
   </div>`;
