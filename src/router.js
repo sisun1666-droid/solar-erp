@@ -1,7 +1,7 @@
 import { emit, on } from "./store/index.js";
 
 const VIEWS = [
-  "dashboard", "todos", "messages", "reports", "meetings",
+  "dashboard", "todos", "journal", "messages", "reports", "meetings",
   "construction", "assignment", "db",
   "inspection", "knowledge", "admin",
 ];

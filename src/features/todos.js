@@ -26,6 +26,11 @@ function normTodo(t) {
   if (!t.start)    t.start    = t.due;
   return t;
 }
+function stampCompletion(t, oldStatus) {
+  if (t.status === "완료" && oldStatus !== "완료") t.completedAt = today();
+  else if (t.status !== "완료") t.completedAt = null;
+  return t;
+}
 function normAssign(a) {
   if (!a.id)       a.id       = genId("assignment");
   if (!a.start)    a.start    = a.due || today();
@@ -54,13 +59,14 @@ function todoStatusToAssign(s) {
 
 // ── 연결 동기화 ─────────────────────────────────────────────────────────────
 function assignToTodo(a, old = {}) {
-  return normTodo({ ...old,
+  const t = normTodo({ ...old,
     id: a.linkedTodoId || old.id || genId("todo"),
     linkedAssignmentId: a.id,
     title: a.title, owner: a.owner, status: assignStatusToTodo(a.status),
     priority: a.priority, start: a.start, due: a.due, detail: a.detail || "",
     project: a.project, type: a.type,
   });
+  return stampCompletion(t, old.status);
 }
 function todoToAssign(t, old = {}) {
   return normAssign({ ...old,
@@ -167,7 +173,7 @@ function moveTodoStatus(idx, newStatus) {
   const assigns = [...(st.assignments || [])];
   const t = todos[idx];
   if (!t || t.status === newStatus) return;
-  todos[idx] = { ...t, status: newStatus };
+  todos[idx] = stampCompletion({ ...t, status: newStatus }, t.status);
   const tmpState = { ...st, todos, assignments: assigns };
   syncTodoToAssign(tmpState, idx);
   setState({ todos: tmpState.todos, assignments: tmpState.assignments });
@@ -358,8 +364,10 @@ async function saveTodo() {
   if (_editingTodo !== null) {
     t.id = todos[_editingTodo].id;
     t.linkedAssignmentId = todos[_editingTodo].linkedAssignmentId;
+    stampCompletion(t, todos[_editingTodo].status);
     todos[_editingTodo] = t;
   } else {
+    stampCompletion(t, null);
     todos.unshift(t);
   }
   const tmpState = { ...st, todos, assignments: assigns };

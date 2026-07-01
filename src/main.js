@@ -6,6 +6,7 @@ import { initPwa        } from "./pwa.js";
 import { normalizeState } from "./features/admin.js";
 import { initGcal       } from "./features/gcal.js";
 import { initTodos      } from "./features/todos.js";
+import { initJournal    } from "./features/journal.js";
 import { initAssignment } from "./features/assignment.js";
 import { initConstruction } from "./features/construction.js";
 import { initProjects   } from "./features/projects.js";
@@ -39,6 +40,7 @@ async function boot() {
   // 피처 먼저 등록 → 그 다음 router가 초기 viewChanged 발사
   initGcal();
   initTodos();
+  initJournal();
   initAssignment();
   initConstruction();
   initProjects();
