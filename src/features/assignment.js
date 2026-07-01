@@ -1,6 +1,7 @@
 import { getState, on } from "../store/index.js";
 import { esc, today, $ } from "../utils/index.js";
 import { openAssignModal } from "./todos.js";
+import { goTo } from "../router.js";
 
 const PASTEL = ["#8ecae6","#ffb5a7","#b8e0d2","#f6d186","#cdb4db","#a7c7e7","#ffd6a5","#caffbf","#bde0fe","#ffc8dd"];
 const DAY_NAMES = ["일","월","화","수","목","금","토"];
@@ -133,6 +134,7 @@ function render() {
       </div>
       <div class="schedule-right">
         <div class="schedule-view">${viewBtns}</div>
+        <button class="btn" id="assignGoTodoBtn">할일 보드 보기</button>
         <button class="btn primary" id="assignAddBtn">일정 등록</button>
       </div>
     </div>
@@ -161,6 +163,7 @@ function onDocClick(e) {
     render(); return;
   }
   if (t.id === "assignAddBtn")   { openAssignModal(); return; }
+  if (t.id === "assignGoTodoBtn") { goTo("todos"); return; }
   if (t.dataset.assignPerson)    { _personFilter = t.dataset.assignPerson; render(); return; }
   if (t.dataset.assignView)      { _view = t.dataset.assignView; render(); return; }
   if (t.dataset.openAssignment !== undefined) {

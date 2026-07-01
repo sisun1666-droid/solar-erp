@@ -1,5 +1,7 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
 import { genId, today, esc, toast, $ } from "../utils/index.js";
+import { isConnected as gcalConnected, createEvent as gcalCreate, updateEvent as gcalUpdate, deleteEvent as gcalDelete } from "./gcal.js";
+import { goTo } from "../router.js";
 
 // ── 상태 ───────────────────────────────────────────────────────────────────
 let _editingTodo = null;       // null = 새 항목, number = 인덱스
@@ -11,6 +13,7 @@ const STATUSES  = ["백로그", "할 일", "진행중", "완료", "취소"];
 const PRIORITIES = ["보통", "높음", "긴급", "낮음"];
 const ASSIGN_STATUSES = ["지시", "진행", "검토요청", "완료", "보류"];
 const ASSIGN_TYPES    = ["일반업무", "서류요청", "현장방문", "외부미팅", "기타"];
+const REPEAT_OPTIONS   = ["없음", "매일", "매주", "매월"];
 
 // ── 정규화 ──────────────────────────────────────────────────────────────────
 function normTodo(t) {
@@ -99,17 +102,41 @@ function syncTodoToAssign(state, todoIdx) {
   }
 }
 
+// ── Google 캘린더 동기화 ────────────────────────────────────────────────────
+const addDays   = (dateStr, n) => { const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const addMonths = (dateStr, n) => { const d = new Date(dateStr); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+function shiftDate(dateStr, repeat, times) {
+  if (repeat === "매일") return addDays(dateStr, times);
+  if (repeat === "매주") return addDays(dateStr, times * 7);
+  if (repeat === "매월") return addMonths(dateStr, times);
+  return dateStr;
+}
+
+async function pushAssignToGcal(a) {
+  if (!gcalConnected()) return a.gcalEventId || null;
+  const body = { summary: a.title, description: a.detail || "", start: { date: a.start }, end: { date: addDays(a.due, 1) } };
+  try {
+    if (a.gcalEventId) { await gcalUpdate(a.gcalEventId, body); return a.gcalEventId; }
+    return await gcalCreate(body);
+  } catch {
+    toast("Google 캘린더 동기화에 실패했습니다.");
+    return a.gcalEventId || null;
+  }
+}
+
 // ── 삭제 ────────────────────────────────────────────────────────────────────
 function deleteTodo(idx) {
   const st = getState();
   const todos = [...st.todos], assigns = [...st.assignments];
   const t = todos[idx];
   if (!t) return;
+  const linked = assigns.find(a => a.id === t.linkedAssignmentId);
   markDeleted("todos", t.id);
   if (t.linkedAssignmentId) markDeleted("assignments", t.linkedAssignmentId);
   todos.splice(idx, 1);
   const newAssigns = assigns.filter(a => a.id !== t.linkedAssignmentId);
   setState({ todos, assignments: newAssigns });
+  if (linked?.gcalEventId) gcalDelete(linked.gcalEventId).catch(() => {});
 }
 function deleteAssign(idx) {
   const st = getState();
@@ -121,6 +148,58 @@ function deleteAssign(idx) {
   assigns.splice(idx, 1);
   const newTodos = todos.filter(t => t.id !== a.linkedTodoId);
   setState({ assignments: assigns, todos: newTodos });
+  if (a.gcalEventId) gcalDelete(a.gcalEventId).catch(() => {});
+}
+
+// ── 마감 임박 표시 ──────────────────────────────────────────────────────────
+function dueBadge(t) {
+  if (["완료", "취소"].includes(t.status) || !t.due) return "";
+  if (t.due < today())  return `<span class="todo-due-badge overdue">지연</span>`;
+  if (t.due === today()) return `<span class="todo-due-badge today">오늘마감</span>`;
+  return "";
+}
+
+// ── 드래그로 상태 변경 ──────────────────────────────────────────────────────
+function moveTodoStatus(idx, newStatus) {
+  const st = getState();
+  const todos = [...(st.todos || [])];
+  const assigns = [...(st.assignments || [])];
+  const t = todos[idx];
+  if (!t || t.status === newStatus) return;
+  todos[idx] = { ...t, status: newStatus };
+  const tmpState = { ...st, todos, assignments: assigns };
+  syncTodoToAssign(tmpState, idx);
+  setState({ todos: tmpState.todos, assignments: tmpState.assignments });
+  renderBoard();
+}
+
+function initDragEvents(panel) {
+  panel.addEventListener("dragstart", e => {
+    const card = e.target.closest(".todo-card");
+    if (!card) return;
+    e.dataTransfer.setData("text/plain", card.dataset.todoIdx);
+    card.classList.add("dragging");
+  });
+  panel.addEventListener("dragend", e => {
+    e.target.closest(".todo-card")?.classList.remove("dragging");
+  });
+  panel.addEventListener("dragover", e => {
+    const col = e.target.closest(".todo-column");
+    if (!col) return;
+    e.preventDefault();
+    col.classList.add("drag-over");
+  });
+  panel.addEventListener("dragleave", e => {
+    e.target.closest(".todo-column")?.classList.remove("drag-over");
+  });
+  panel.addEventListener("drop", e => {
+    const col = e.target.closest(".todo-column");
+    if (!col) return;
+    e.preventDefault();
+    col.classList.remove("drag-over");
+    const idx = Number(e.dataTransfer.getData("text/plain"));
+    if (!Number.isNaN(idx)) moveTodoStatus(idx, col.dataset.todoDropStatus);
+  });
 }
 
 // ── 보드 렌더 ───────────────────────────────────────────────────────────────
@@ -168,8 +247,8 @@ function renderBoard() {
     const rows = filtered.filter(x => x.t.status === s);
     const cards = rows.length
       ? rows.map(({ t, i }) => `
-          <div class="todo-card" style="border-left:4px solid ${COL_STYLE.cbr[s]||"#cbd5e1"}">
-            <div class="todo-card-title">${esc(t.title)}</div>
+          <div class="todo-card" draggable="true" data-todo-idx="${i}" style="border-left:4px solid ${COL_STYLE.cbr[s]||"#cbd5e1"}">
+            <div class="todo-card-title">${esc(t.title)} ${dueBadge(t)}</div>
             <div class="todo-card-meta">${esc(t.owner||"담당 미정")} · ${esc(t.priority||"보통")} · ${esc(t.due||"")}</div>
             ${t.detail ? `<div class="todo-card-meta" style="margin-top:2px">${esc(t.detail.length > 40 ? t.detail.slice(0, 40) + "…" : t.detail)}</div>` : ""}
             <div class="row-actions" style="margin-top:7px">
@@ -197,6 +276,7 @@ function renderBoard() {
       <div class="todo-view">
         <button class="active">보드</button>
       </div>
+      <button class="btn" id="todoGoCalendarBtn">캘린더 보기</button>
       <button class="btn primary" id="todoAddBtn">할일 추가</button>
     </div>
     <div class="todo-filters">
@@ -258,7 +338,7 @@ function openTodoModal(idx = null, defaultStatus = "할 일") {
   $("todoModal")?.classList.add("open");
 }
 
-function saveTodo() {
+async function saveTodo() {
   const st = getState();
   const todos = [...(st.todos || [])];
   const assigns = [...(st.assignments || [])];
@@ -279,7 +359,13 @@ function saveTodo() {
     todos.unshift(t);
   }
   const tmpState = { ...st, todos, assignments: assigns };
-  syncTodoToAssign(tmpState, _editingTodo !== null ? _editingTodo : 0);
+  const todoIdx = _editingTodo !== null ? _editingTodo : 0;
+  syncTodoToAssign(tmpState, todoIdx);
+  const assignIdx = tmpState.assignments.findIndex(a => a.id === tmpState.todos[todoIdx].linkedAssignmentId);
+  if (assignIdx >= 0) {
+    const gcalId = await pushAssignToGcal(tmpState.assignments[assignIdx]);
+    if (gcalId) tmpState.assignments[assignIdx] = { ...tmpState.assignments[assignIdx], gcalEventId: gcalId };
+  }
   setState({ todos: tmpState.todos, assignments: tmpState.assignments });
   closeTodoModal();
   toast("할일과 일정을 함께 저장했습니다.");
@@ -350,14 +436,23 @@ function openAssignModal(idx = null) {
     <div class="form-row full">
       <label>내용</label>
       <textarea class="field" id="assignmentDetail">${esc(a.detail || "")}</textarea>
-    </div>`;
+    </div>
+    ${idx === null ? `
+    <div class="form-row">
+      <label>반복</label>
+      <select class="field" id="assignmentRepeat">${REPEAT_OPTIONS.map(r => `<option>${esc(r)}</option>`).join("")}</select>
+    </div>
+    <div class="form-row">
+      <label>반복 횟수</label>
+      <input class="field" type="number" id="assignmentRepeatCount" value="4" min="2" max="52">
+    </div>` : ""}`;
 
   $("deleteAssignmentBtn")?.classList.toggle("hidden", idx === null);
   $("assignmentModal")?.classList.remove("hidden");
   $("assignmentModal")?.classList.add("open");
 }
 
-function saveAssign() {
+async function saveAssign() {
   const st = getState();
   const todos = [...(st.todos || [])];
   const assigns = [...(st.assignments || [])];
@@ -372,18 +467,38 @@ function saveAssign() {
     due:      $("assignmentDue")?.value || today(),
     detail:   $("assignmentDetail")?.value || "",
   });
+  const assignIdx = _editingAssign !== null ? _editingAssign : 0;
   if (_editingAssign !== null) {
     a.id = assigns[_editingAssign].id;
     a.linkedTodoId = assigns[_editingAssign].linkedTodoId;
+    a.gcalEventId = assigns[_editingAssign].gcalEventId;
     assigns[_editingAssign] = a;
   } else {
     assigns.unshift(a);
   }
+  const gcalId = await pushAssignToGcal(assigns[assignIdx]);
+  if (gcalId) assigns[assignIdx] = { ...assigns[assignIdx], gcalEventId: gcalId };
   const tmpState = { ...st, todos, assignments: assigns };
-  syncAssignToTodo(tmpState, _editingAssign !== null ? _editingAssign : 0);
+  syncAssignToTodo(tmpState, assignIdx);
+
+  const repeat = _editingAssign === null ? ($("assignmentRepeat")?.value || "없음") : "없음";
+  const count = Math.max(2, Number($("assignmentRepeatCount")?.value) || 4);
+  if (repeat !== "없음") {
+    for (let i = 1; i < count; i++) {
+      const occ = normAssign({
+        ...a, id: undefined, linkedTodoId: undefined, gcalEventId: undefined,
+        start: shiftDate(a.start, repeat, i), due: shiftDate(a.due, repeat, i),
+      });
+      tmpState.assignments.unshift(occ);
+      const gid = await pushAssignToGcal(tmpState.assignments[0]);
+      if (gid) tmpState.assignments[0] = { ...tmpState.assignments[0], gcalEventId: gid };
+      syncAssignToTodo(tmpState, 0);
+    }
+  }
+
   setState({ todos: tmpState.todos, assignments: tmpState.assignments });
   closeAssignModal();
-  toast("일정과 할일을 함께 저장했습니다.");
+  toast(repeat !== "없음" ? `일정 ${count}건을 반복 생성했습니다.` : "일정과 할일을 함께 저장했습니다.");
   renderBoard();
 }
 
@@ -398,6 +513,7 @@ function onDocClick(e) {
   const t = e.target.closest("button") || e.target;
 
   if (t.id === "todoAddBtn")              return openTodoModal();
+  if (t.id === "todoGoCalendarBtn")       return goTo("assignment");
   if (t.dataset.addTodoStatus)            return openTodoModal(null, t.dataset.addTodoStatus);
   if (t.dataset.editTodo !== undefined)   return openTodoModal(Number(t.dataset.editTodo));
   if (t.dataset.todoStatusFilter)         { _statusFilter = t.dataset.todoStatusFilter; renderBoard(); return; }
@@ -441,6 +557,8 @@ function onDocClick(e) {
 // ── 초기화 ──────────────────────────────────────────────────────────────────
 export function initTodos() {
   document.addEventListener("click", onDocClick);
+  const panel = $("todosView");
+  if (panel) initDragEvents(panel);
   on("viewChanged", ({ view }) => { if (view === "todos") renderBoard(); });
   on("stateChange", () => {
     const panel = $("todosView");

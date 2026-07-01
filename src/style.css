@@ -173,6 +173,9 @@
     .todo-card[draggable=true]{cursor:grab}.todo-card.dragging{opacity:.45;transform:scale(.98)}.todo-column.drag-over{outline:2px dashed var(--teal);outline-offset:-4px}
     .todo-drag-hint{font-size:11px;color:var(--muted);font-weight:800;margin-left:6px}
     .todo-card-title{font-weight:700;font-size:12px;line-height:1.3;margin-bottom:3px}.todo-card-meta{color:var(--muted);font-size:10.5px;line-height:1.4}
+    .todo-due-badge{display:inline-block;font-size:9.5px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+    .todo-due-badge.overdue{background:#fee2e2;color:#991b1b}
+    .todo-due-badge.today{background:#ffedd5;color:#9a3412}
     .share-badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:900;border:1px solid var(--line);margin-left:4px}
     .share-badge.shared{background:#e9f8ef;color:#137b46;border-color:#b9e4c9}
     .share-badge.unshared{background:#fff7e6;color:#8a4b00;border-color:#f5d08b}
