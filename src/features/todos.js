@@ -222,6 +222,34 @@ const COL_STYLE = {
 function renderBoard() {
   const panel = $("todosView");
   if (!panel) return;
+  ensureBoardShell(panel);
+  renderBoardResults(panel);
+}
+
+// 검색창은 최초 1번만 만들고 다시 그리지 않는다 — 재렌더 때마다 통째로
+// 다시 그리면 한글 조합 중이던 input이 파괴되어 타자가 끊기기 때문.
+function ensureBoardShell(panel) {
+  if (panel.dataset.boardShellReady) return;
+  panel.dataset.boardShellReady = "1";
+  panel.innerHTML = `
+    <div class="todo-toolbar">
+      <div class="todo-view">
+        <button class="active">보드</button>
+      </div>
+      <button class="btn" id="todoGoCalendarBtn">캘린더 보기</button>
+      <button class="btn primary" id="todoAddBtn">할일 추가</button>
+    </div>
+    <div class="todo-filters">
+      <input class="search" id="todoSearch" placeholder="제목, 담당자, 우선순위 검색">
+      <div class="todo-chips" id="todoStatusChips"></div>
+      <div class="todo-chips" id="todoOwnerChips"></div>
+    </div>
+    <div class="todo-board" id="todoBoardCols"></div>`;
+
+  onSearchInput(panel.querySelector("#todoSearch"), () => renderBoardResults(panel));
+}
+
+function renderBoardResults(panel) {
   const st = getState();
   const q = panel.querySelector("#todoSearch")?.value || "";
   const todos = st.todos || [];
@@ -283,20 +311,12 @@ function renderBoard() {
       </div>`;
   }).join("");
 
-  panel.innerHTML = `
-    <div class="todo-toolbar">
-      <div class="todo-view">
-        <button class="active">보드</button>
-      </div>
-      <button class="btn" id="todoGoCalendarBtn">캘린더 보기</button>
-      <button class="btn primary" id="todoAddBtn">할일 추가</button>
-    </div>
-    <div class="todo-filters">
-      <input class="search" id="todoSearch" placeholder="제목, 담당자, 우선순위 검색" value="${esc(q)}">
-      <div class="todo-chips">${statusChips}</div>
-      <div class="todo-chips">${ownerChips}</div>
-    </div>
-    <div class="todo-board">${columns}</div>`;
+  const statusChipsEl = panel.querySelector("#todoStatusChips");
+  const ownerChipsEl  = panel.querySelector("#todoOwnerChips");
+  const boardEl       = panel.querySelector("#todoBoardCols");
+  if (statusChipsEl) statusChipsEl.innerHTML = statusChips;
+  if (ownerChipsEl)  ownerChipsEl.innerHTML  = ownerChips;
+  if (boardEl)       boardEl.innerHTML       = columns;
 
   onSearchInput(panel.querySelector("#todoSearch"), renderBoard);
 }

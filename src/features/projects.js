@@ -24,13 +24,55 @@ function normProject(p) {
 function renderProjects() {
   const panel = $("dbView");
   if (!panel) return;
-  renderProjectTable(panel);
+  ensureProjectShell(panel);
+  renderProjectResults(panel);
 }
 
-function renderProjectTable(panel) {
+// 검색창을 포함한 툴바는 최초 1번만 만들고 다시는 손대지 않는다.
+// (배경 동기화 등으로 인한 재렌더 때마다 통째로 다시 그리면, 그 순간 한글
+// 조합 중이던 input이 파괴되어 타자가 끊기기 때문 — 결과 영역만 갱신한다.)
+function ensureProjectShell(panel) {
+  if (panel.dataset.projShellReady) return;
+  panel.dataset.projShellReady = "1";
+
+  panel.innerHTML = `
+    <div class="toolbar" style="margin-bottom:12px">
+      <input class="search" id="projSearch" placeholder="고객/현장 검색" value="${esc(_projSearch)}" style="max-width:240px">
+      <div id="projPhaseSlot"></div>
+      <button class="btn primary" id="projAddBtn">현장 추가</button>
+      <button class="btn" id="projImportBtn">엑셀/CSV 가져오기</button>
+      <input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" id="projCsvInput" style="display:none">
+    </div>
+    <div id="projResultsWrap"></div>`;
+
+  onSearchInput(panel.querySelector("#projSearch"), e => {
+    _projSearch = e.target.value; _projPage = 1; renderProjectResults(panel);
+  });
+  panel.querySelector("#projImportBtn")?.addEventListener("click", () => {
+    panel.querySelector("#projCsvInput")?.click();
+  });
+  panel.querySelector("#projCsvInput")?.addEventListener("change", async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const isExcel = /\.xlsx?$/i.test(file.name);
+    const rows = isExcel ? await parseExcel(file) : parseCSV(await file.text());
+    if (rows.length < 2) { toast("파일에 데이터가 없습니다."); return; }
+    openCsvMapModal(rows[0], rows.slice(1));
+  });
+}
+
+function renderProjectResults(panel) {
   const st = getState();
   const phases = ["전체", ...(st.phases || [])];
   const phaseOpts = phases.map(p => `<option${p === _projPhase ? " selected" : ""}>${esc(p)}</option>`).join("");
+  const phaseSlot = panel.querySelector("#projPhaseSlot");
+  if (phaseSlot) {
+    phaseSlot.innerHTML = `<select class="field" id="projPhase" style="max-width:150px">${phaseOpts}</select>`;
+    phaseSlot.querySelector("#projPhase")?.addEventListener("change", e => {
+      _projPhase = e.target.value; _projPage = 1; renderProjectResults(panel);
+    });
+  }
 
   const filtered = (st.projects || []).filter(p => {
     if (_projPhase !== "전체" && p.phase !== _projPhase) return false;
@@ -55,14 +97,9 @@ function renderProjectTable(panel) {
     return `<button class="sort-head" data-proj-sort="${key}">${esc(label)}${mark}</button>`;
   }
 
-  panel.innerHTML = `
-    <div class="toolbar" style="margin-bottom:12px">
-      <input class="search" id="projSearch" placeholder="고객/현장 검색" value="${esc(_projSearch)}" style="max-width:240px">
-      <select class="field" id="projPhase" style="max-width:150px">${phaseOpts}</select>
-      <button class="btn primary" id="projAddBtn">현장 추가</button>
-      <button class="btn" id="projImportBtn">엑셀/CSV 가져오기</button>
-      <input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" id="projCsvInput" style="display:none">
-    </div>
+  const wrap = panel.querySelector("#projResultsWrap");
+  if (!wrap) return;
+  wrap.innerHTML = `
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -94,26 +131,8 @@ function renderProjectTable(panel) {
       <button class="btn icon" id="projPageNext" ${_projPage >= totalPages ? "disabled" : ""}>›</button>
     </div>`;
 
-  onSearchInput(panel.querySelector("#projSearch"), e => {
-    _projSearch = e.target.value; _projPage = 1; renderProjectTable(panel);
-  });
-  panel.querySelector("#projPhase")?.addEventListener("change", e => {
-    _projPhase = e.target.value; _projPage = 1; renderProjectTable(panel);
-  });
-  panel.querySelector("#projPagePrev")?.addEventListener("click", () => { _projPage--; renderProjectTable(panel); });
-  panel.querySelector("#projPageNext")?.addEventListener("click", () => { _projPage++; renderProjectTable(panel); });
-  panel.querySelector("#projImportBtn")?.addEventListener("click", () => {
-    panel.querySelector("#projCsvInput")?.click();
-  });
-  panel.querySelector("#projCsvInput")?.addEventListener("change", async e => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    const isExcel = /\.xlsx?$/i.test(file.name);
-    const rows = isExcel ? await parseExcel(file) : parseCSV(await file.text());
-    if (rows.length < 2) { toast("파일에 데이터가 없습니다."); return; }
-    openCsvMapModal(rows[0], rows.slice(1));
-  });
+  wrap.querySelector("#projPagePrev")?.addEventListener("click", () => { _projPage--; renderProjectResults(panel); });
+  wrap.querySelector("#projPageNext")?.addEventListener("click", () => { _projPage++; renderProjectResults(panel); });
 }
 
 // ── CSV 가져오기 ────────────────────────────────────────────────────────────
@@ -340,7 +359,7 @@ function onDocClick(e) {
     if (_projSortKey === t.dataset.projSort) _projSortDir = _projSortDir === "asc" ? "desc" : "asc";
     else { _projSortKey = t.dataset.projSort; _projSortDir = "asc"; }
     const panel = $("dbView");
-    if (panel && !panel.classList.contains("hidden")) renderProjectTable(panel);
+    if (panel && !panel.classList.contains("hidden")) renderProjectResults(panel);
   }
 }
 
@@ -349,6 +368,6 @@ export function initProjects() {
   on("viewChanged", ({ view }) => { if (view === "db") renderProjects(); });
   on("stateChange", () => {
     const panel = $("dbView");
-    if (panel && !panel.classList.contains("hidden")) renderProjectTable(panel);
+    if (panel && !panel.classList.contains("hidden")) renderProjectResults(panel);
   });
 }

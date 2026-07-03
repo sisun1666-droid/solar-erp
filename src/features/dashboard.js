@@ -174,11 +174,103 @@ function startClock() {
 }
 
 // ── 메인 렌더 ────────────────────────────────────────────────────────────────
+// 검색창은 최초 1번만 만들고 다시 그리지 않는다 — 재렌더 때마다 통째로
+// 다시 그리면 한글 조합 중이던 input이 파괴되어 타자가 끊기기 때문.
+function ensureDashboardShell(panel) {
+  if (panel.dataset.dashShellReady) return;
+  panel.dataset.dashShellReady = "1";
+
+  panel.innerHTML = `
+    <div class="workspace-dashboard">
+
+      <!-- 왼쪽: 시공일정 목록 -->
+      <aside class="dash-column">
+        <section class="dash-section">
+          <div class="dash-title">
+            <h2>📋 시공일정</h2>
+            <button class="btn primary" data-dash-add-con>추가</button>
+          </div>
+          <input class="project-search" id="dashProjSearch" placeholder="현장, 시공사 검색" value="${esc(_projSearch)}">
+          <div class="dash-link-row" id="dashPillRow"></div>
+          <div class="project-list" id="dashProjectList"></div>
+        </section>
+      </aside>
+
+      <!-- 가운데: KPI + 지연 목록 -->
+      <div class="dash-main">
+        <section class="dash-section">
+          <div class="dash-title">
+            <h2 id="dashKpiTitle"></h2>
+          </div>
+          <div id="dashKpiBody"></div>
+        </section>
+
+        <!-- 날씨 + 시계 -->
+        <div class="dash-top-grid">
+          <section class="dash-section compact" style="margin:0">
+            <div class="dash-title"><h2>🏗️ 시공 기상정보</h2><button class="btn" data-refresh-weather>새로고침</button></div>
+            <div id="dashWeatherContent" class="weather-grid"><div class="meta">기상 정보를 불러오는 중...</div></div>
+            <div class="label" style="margin-top:10px">대구 7일 시공 예보</div>
+            <div id="dashForecastContent" class="forecast-strip"></div>
+          </section>
+          <section class="weather-clock-box" style="margin:0;position:relative;overflow:hidden;min-height:180px">
+            <div id="dashClockBg" style="position:absolute;inset:0;background-size:cover;background-position:center;opacity:0.75;pointer-events:none"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,.38));pointer-events:none"></div>
+            <div style="position:relative;z-index:2;width:100%;text-align:center;padding:16px 0">
+              <div id="dashClockDate" style="font-size:13px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.6px;margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.6)"></div>
+              <div id="dashClock" style="font-size:44px;font-weight:800;letter-spacing:-2px;color:#fff;line-height:1;text-shadow:0 3px 12px rgba(0,0,0,.75)"></div>
+              <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:10px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.5)">Asia/Seoul 기준</div>
+            </div>
+          </section>
+        </div>
+
+        <section class="dash-section compact">
+          <div class="dash-title"><h2>⚠️ 지연/확인 필요</h2></div>
+          <div class="linked-list" id="dashAttentionList"></div>
+        </section>
+      </div>
+
+      <!-- 오른쪽: 미니 캘린더 + 날짜별 할일 -->
+      <aside class="dash-side">
+        <section class="dash-section">
+          <div class="mini-calendar-head">
+            <button class="btn icon" data-dash-month="-1">‹</button>
+            <strong id="dashMonthLabel"></strong>
+            <button class="btn icon" data-dash-month="1">›</button>
+          </div>
+          <div class="mini-calendar" id="dashMiniCalendar"></div>
+        </section>
+
+        <section class="dash-section">
+          <div class="dash-title">
+            <h2 id="dashSelDateTitle"></h2>
+            <button class="btn" data-dash-today>오늘</button>
+          </div>
+          <div class="today-list" id="dashTodayList"></div>
+        </section>
+      </aside>
+    </div>`;
+
+  onSearchInput(panel.querySelector("#dashProjSearch"), e => {
+    _projSearch = e.target.value;
+    renderDashboardResults(panel);
+  });
+
+  startClock();
+  loadWeather();
+  const saved = localStorage.getItem("clockBgImage");
+  if (saved) { const el = document.getElementById("dashClockBg"); if (el) el.style.backgroundImage = `url(${saved})`; }
+}
+
 function render() {
   const panel = document.getElementById("dashboardView");
   if (!panel) return;
   if (panel.classList.contains("hidden")) return;
+  ensureDashboardShell(panel);
+  renderDashboardResults(panel);
+}
 
+function renderDashboardResults(panel) {
   const st = getState();
   const allCon = st.construction || [];
   const assigns = st.assignments || [];
@@ -204,123 +296,59 @@ function render() {
     .filter(({ c }) => c.status === "지연" || (c.next && c.status === "시공중"))
     .slice(0, 8);
 
-  panel.innerHTML = `
-    <div class="workspace-dashboard">
+  const pillRow = panel.querySelector("#dashPillRow");
+  if (pillRow) pillRow.innerHTML = `
+    <span class="dash-pill">${ym}</span>
+    <span class="dash-pill">공사 ${rows.length}</span>
+    <span class="dash-pill">지연 ${rows.filter(c=>c.status==="지연").length}</span>`;
 
-      <!-- 왼쪽: 시공일정 목록 -->
-      <aside class="dash-column">
-        <section class="dash-section">
-          <div class="dash-title">
-            <h2>📋 시공일정</h2>
-            <button class="btn primary" data-dash-add-con>추가</button>
-          </div>
-          <input class="project-search" id="dashProjSearch" placeholder="현장, 시공사 검색" value="${esc(_projSearch)}">
-          <div class="dash-link-row">
-            <span class="dash-pill">${ym}</span>
-            <span class="dash-pill">공사 ${rows.length}</span>
-            <span class="dash-pill">지연 ${rows.filter(c=>c.status==="지연").length}</span>
-          </div>
-          <div class="project-list">
-            ${rows.length
-              ? rows.map(c => {
-                  const ci = allCon.indexOf(c);
-                  return `<button class="project-item" data-dash-con="${ci}">
-                    <span class="project-name">${esc(c.site || "이름 없는 발전소")}</span>
-                    <span class="project-meta">${esc(c.company||"-")} · ${esc(c.kw||0)}kW · ${esc(c.status||"예정")}</span>
-                    <span class="project-meta">${esc(c.phase||"-")} · ${esc(c.start||"-")} ~ ${esc(c.end||"")}</span>
-                  </button>`;
-                }).join("")
-              : `<div class="dash-empty">${ym} 공사가 없습니다.</div>`}
-          </div>
-        </section>
-      </aside>
+  const projectList = panel.querySelector("#dashProjectList");
+  if (projectList) projectList.innerHTML = rows.length
+    ? rows.map(c => {
+        const ci = allCon.indexOf(c);
+        return `<button class="project-item" data-dash-con="${ci}">
+          <span class="project-name">${esc(c.site || "이름 없는 발전소")}</span>
+          <span class="project-meta">${esc(c.company||"-")} · ${esc(c.kw||0)}kW · ${esc(c.status||"예정")}</span>
+          <span class="project-meta">${esc(c.phase||"-")} · ${esc(c.start||"-")} ~ ${esc(c.end||"")}</span>
+        </button>`;
+      }).join("")
+    : `<div class="dash-empty">${ym} 공사가 없습니다.</div>`;
 
-      <!-- 가운데: KPI + 지연 목록 -->
-      <div class="dash-main">
-        <section class="dash-section">
-          <div class="dash-title">
-            <h2>📊 ${ym} 시공관리 현황</h2>
-          </div>
-          ${kpiSection(rows, allCon)}
-        </section>
+  const kpiTitle = panel.querySelector("#dashKpiTitle");
+  if (kpiTitle) kpiTitle.textContent = `📊 ${ym} 시공관리 현황`;
+  const kpiBody = panel.querySelector("#dashKpiBody");
+  if (kpiBody) kpiBody.innerHTML = kpiSection(rows, allCon);
 
-        <!-- 날씨 + 시계 -->
-        <div class="dash-top-grid">
-          <section class="dash-section compact" style="margin:0">
-            <div class="dash-title"><h2>🏗️ 시공 기상정보</h2><button class="btn" data-refresh-weather>새로고침</button></div>
-            <div id="dashWeatherContent" class="weather-grid"><div class="meta">기상 정보를 불러오는 중...</div></div>
-            <div class="label" style="margin-top:10px">대구 7일 시공 예보</div>
-            <div id="dashForecastContent" class="forecast-strip"></div>
-          </section>
-          <section class="weather-clock-box" style="margin:0;position:relative;overflow:hidden;min-height:180px">
-            <div id="dashClockBg" style="position:absolute;inset:0;background-size:cover;background-position:center;opacity:0.75;pointer-events:none"></div>
-            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,.38));pointer-events:none"></div>
-            <div style="position:relative;z-index:2;width:100%;text-align:center;padding:16px 0">
-              <div id="dashClockDate" style="font-size:13px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.6px;margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.6)"></div>
-              <div id="dashClock" style="font-size:44px;font-weight:800;letter-spacing:-2px;color:#fff;line-height:1;text-shadow:0 3px 12px rgba(0,0,0,.75)"></div>
-              <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:10px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.5)">Asia/Seoul 기준</div>
-            </div>
-          </section>
-        </div>
+  const attentionList = panel.querySelector("#dashAttentionList");
+  if (attentionList) attentionList.innerHTML = needAttention.length
+    ? needAttention.map(({ c, i }) =>
+        `<button class="linked-item" data-dash-con="${i}">
+          <strong>${esc(c.site)}</strong>
+          <div class="meta">${esc(c.status||"-")} · ${esc(c.next||"다음 액션 없음")}</div>
+        </button>`).join("")
+    : `<div class="meta">이번 달 특이사항이 없습니다.</div>`;
 
-        <section class="dash-section compact">
-          <div class="dash-title"><h2>⚠️ 지연/확인 필요</h2></div>
-          <div class="linked-list">
-            ${needAttention.length
-              ? needAttention.map(({ c, i }) =>
-                  `<button class="linked-item" data-dash-con="${i}">
-                    <strong>${esc(c.site)}</strong>
-                    <div class="meta">${esc(c.status||"-")} · ${esc(c.next||"다음 액션 없음")}</div>
-                  </button>`).join("")
-              : `<div class="meta">이번 달 특이사항이 없습니다.</div>`}
-          </div>
-        </section>
-      </div>
+  const monthLabel = panel.querySelector("#dashMonthLabel");
+  if (monthLabel) monthLabel.textContent = monthStr();
+  const miniCal = panel.querySelector("#dashMiniCalendar");
+  if (miniCal) miniCal.innerHTML = miniCalendar();
 
-      <!-- 오른쪽: 미니 캘린더 + 날짜별 할일 -->
-      <aside class="dash-side">
-        <section class="dash-section">
-          <div class="mini-calendar-head">
-            <button class="btn icon" data-dash-month="-1">‹</button>
-            <strong>${monthStr()}</strong>
-            <button class="btn icon" data-dash-month="1">›</button>
-          </div>
-          <div class="mini-calendar">${miniCalendar()}</div>
-        </section>
-
-        <section class="dash-section">
-          <div class="dash-title">
-            <h2>${esc(_selDate)} 할일·일정</h2>
-            <button class="btn" data-dash-today>오늘</button>
-          </div>
-          <div class="today-list">
-            ${dateItems.todos.map(t =>
-              `<button class="today-item" data-edit-todo="${esc(t.id)}">
-                <strong>${esc(t.title)}</strong>
-                <div class="meta">${esc(t.owner)} · ${esc(t.status)} · 할일</div>
-              </button>`).join("")}
-            ${dateItems.assigns.map(a =>
-              `<button class="today-item" data-open-assignment="${esc(a.id)}">
-                <strong>${esc(a.title)}</strong>
-                <div class="meta">${esc(a.owner)} · ${esc(a.status)} · 일정</div>
-              </button>`).join("")}
-            ${dateItems.todos.length + dateItems.assigns.length === 0
-              ? `<div class="meta">선택한 날짜에 항목이 없습니다.</div>` : ""}
-          </div>
-        </section>
-      </aside>
-    </div>`;
-
-  // 검색 이벤트
-  onSearchInput(panel.querySelector("#dashProjSearch"), e => {
-    _projSearch = e.target.value;
-    render();
-  });
-
-  startClock();
-  loadWeather();
-  const saved = localStorage.getItem("clockBgImage");
-  if (saved) { const el = document.getElementById("dashClockBg"); if (el) el.style.backgroundImage = `url(${saved})`; }
+  const selDateTitle = panel.querySelector("#dashSelDateTitle");
+  if (selDateTitle) selDateTitle.textContent = `${_selDate} 할일·일정`;
+  const todayList = panel.querySelector("#dashTodayList");
+  if (todayList) todayList.innerHTML = `
+    ${dateItems.todos.map(t =>
+      `<button class="today-item" data-edit-todo="${esc(t.id)}">
+        <strong>${esc(t.title)}</strong>
+        <div class="meta">${esc(t.owner)} · ${esc(t.status)} · 할일</div>
+      </button>`).join("")}
+    ${dateItems.assigns.map(a =>
+      `<button class="today-item" data-open-assignment="${esc(a.id)}">
+        <strong>${esc(a.title)}</strong>
+        <div class="meta">${esc(a.owner)} · ${esc(a.status)} · 일정</div>
+      </button>`).join("")}
+    ${dateItems.todos.length + dateItems.assigns.length === 0
+      ? `<div class="meta">선택한 날짜에 항목이 없습니다.</div>` : ""}`;
 }
 
 // ── 이벤트 위임 ──────────────────────────────────────────────────────────────

@@ -67,14 +67,39 @@ function filterRows(list) {
   });
 }
 
+// 검색창은 최초 1번만 만들고 다시 그리지 않는다 — 재렌더 때마다 통째로
+// 다시 그리면 한글 조합 중이던 input이 파괴되어 타자가 끊기기 때문.
+function ensureConstructionShell(panel) {
+  if (panel.dataset.conShellReady) return;
+  panel.dataset.conShellReady = "1";
+  panel.innerHTML = `
+    <div class="toolbar" style="margin-bottom:12px">
+      <input class="search" id="conSearch" placeholder="현장, 시공사, 고객 검색" value="${esc(_search)}" style="max-width:260px">
+      <div id="conPhaseSlot"></div>
+      <button class="btn primary" id="conAddBtn">시공일정 추가</button>
+    </div>
+    <div id="conResultsWrap"></div>`;
+
+  onSearchInput(panel.querySelector("#conSearch"), e => {
+    _search = e.target.value; renderTable(panel);
+  });
+}
+
 function renderTable(panel) {
+  ensureConstructionShell(panel);
   const st = getState();
   const list = st.construction || [];
   const phases = ["전체", ...(st.constructionPhases || [])];
-  const teams  = st.constructionTeams || [];
 
   const phaseOpts = phases.map(p =>
     `<option${p === _phase ? " selected" : ""}>${esc(p)}</option>`).join("");
+  const phaseSlot = panel.querySelector("#conPhaseSlot");
+  if (phaseSlot) {
+    phaseSlot.innerHTML = `<select class="field" id="conPhase" style="max-width:160px">${phaseOpts}</select>`;
+    phaseSlot.querySelector("#conPhase")?.addEventListener("change", e => {
+      _phase = e.target.value; renderTable(panel);
+    });
+  }
 
   const rows = sortRows(filterRows(list.map((c, i) => ({ ...c, _i: i }))));
 
@@ -83,12 +108,9 @@ function renderTable(panel) {
     return `<button class="sort-head" data-con-sort="${key}">${esc(label)}${mark}</button>`;
   }
 
-  panel.innerHTML = `
-    <div class="toolbar" style="margin-bottom:12px">
-      <input class="search" id="conSearch" placeholder="현장, 시공사, 고객 검색" value="${esc(_search)}" style="max-width:260px">
-      <select class="field" id="conPhase" style="max-width:160px">${phaseOpts}</select>
-      <button class="btn primary" id="conAddBtn">시공일정 추가</button>
-    </div>
+  const wrap = panel.querySelector("#conResultsWrap");
+  if (!wrap) return;
+  wrap.innerHTML = `
     <div class="table-wrap">
       <table style="min-width:1600px">
         <thead>
@@ -144,13 +166,6 @@ function renderTable(panel) {
     </div>`;
 
   renderPlantCards();
-
-  onSearchInput(panel.querySelector("#conSearch"), e => {
-    _search = e.target.value; renderTable(panel);
-  });
-  panel.querySelector("#conPhase")?.addEventListener("change", e => {
-    _phase = e.target.value; renderTable(panel);
-  });
 }
 
 function renderPlantCards() {
