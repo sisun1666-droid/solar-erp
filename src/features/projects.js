@@ -231,12 +231,28 @@ function guessColumn(headers, key) {
   return idx;
 }
 
+// 시/도 정식명칭 ↔ 약칭 표기 차이("경상남도"/"경남" 등)를 하나로 통일한다.
+// 문자열 맨 앞(시/도 자리)에서만 치환 — 뒤에 나오는 시/군/구 이름과 헷갈리지 않도록.
+const REGION_ALIASES = [
+  [/^서울(특별시)?/, "서울"], [/^부산(광역시)?/, "부산"], [/^대구(광역시)?/, "대구"],
+  [/^인천(광역시)?/, "인천"], [/^광주(광역시)?/, "광주"], [/^대전(광역시)?/, "대전"],
+  [/^울산(광역시)?/, "울산"], [/^세종(특별자치시)?/, "세종"], [/^경기(도)?/, "경기"],
+  [/^강원(특별자치도|도)?/, "강원"], [/^충청북도|^충북/, "충북"], [/^충청남도|^충남/, "충남"],
+  [/^전라북도|^전북특별자치도|^전북/, "전북"], [/^전라남도|^전남/, "전남"],
+  [/^경상북도|^경북/, "경북"], [/^경상남도|^경남/, "경남"],
+  [/^제주(특별자치도|도)?/, "제주"],
+];
+
 // 현장 주소를 정규화해서 같은 부지에 있는 발전소를 하나의 그룹으로 묶는 키.
 // 사업주는 가족 명의 등으로 갈릴 수 있어 그룹 기준에서 제외하고 주소만 본다.
 function addressGroupKey(address) {
-  const s = (address || "").trim();
+  let s = (address || "").trim();
   if (!s) return "";
-  return s.replace(/\s+/g, "").replace(/번지|지번/g, "").replace(/[,.\-]/g, "");
+  s = s.replace(/\s+/g, "").replace(/번지|지번/g, "").replace(/[,./()\-]/g, "");
+  for (const [re, short] of REGION_ALIASES) {
+    if (re.test(s)) { s = s.replace(re, short); break; }
+  }
+  return s;
 }
 
 function openCsvMapModal(headers, dataRows) {
@@ -281,6 +297,11 @@ function openCsvMapModal(headers, dataRows) {
     if (map.name === -1) { toast("현장명 열을 선택해주세요."); return; }
     const st = getState();
     const projects = [...(st.projects || [])];
+    // 발전소명이 우연히 겹치는(서로 다른 현장) 경우가 실제로 있어서, 담당자
+    // 정보가 있으면 "이름+담당자"로 더 확실하게 매칭한다. 담당자를 안 가져오는
+    // 파일이면 예전처럼 이름만으로 매칭한다.
+    const keyOf = (name, owner) => name + " " + (owner || "");
+    const byKey  = new Map(projects.map((p, i) => [keyOf(p.name, p.owner), i]));
     const byName = new Map(projects.map((p, i) => [p.name, i]));
     let added = 0, updated = 0;
     for (const row of dataRows) {
@@ -292,13 +313,15 @@ function openCsvMapModal(headers, dataRows) {
         fields[f.key] = f.key === "due" ? normDate(row[map[f.key]]) : (row[map[f.key]] || "").trim();
       }
 
-      const existingIdx = byName.get(name);
+      const rowOwner = map.owner >= 0 ? (row[map.owner] || "").trim() : undefined;
+      const existingIdx = rowOwner !== undefined ? byKey.get(keyOf(name, rowOwner)) : byName.get(name);
       if (existingIdx !== undefined) {
         projects[existingIdx] = normProject({ ...projects[existingIdx], ...fields, name });
         updated++;
       } else {
         const p = normProject({ name, status: "정상", ...fields });
         projects.push(p);
+        byKey.set(keyOf(p.name, p.owner), projects.length - 1);
         byName.set(name, projects.length - 1);
         added++;
       }
