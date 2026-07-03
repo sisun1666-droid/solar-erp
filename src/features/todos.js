@@ -38,7 +38,7 @@ function normAssign(a) {
   if (!a.priority) a.priority = "보통";
   if (!a.status)   a.status   = "지시";
   if (!a.type)     a.type     = "일반업무";
-  if (!a.project)  a.project  = "일반업무";
+  if (a.project === undefined) a.project = "";
   if (!a.title)    a.title    = "제목 없는 일정";
   return a;
 }
@@ -72,7 +72,7 @@ function todoToAssign(t, old = {}) {
   return normAssign({ ...old,
     id: t.linkedAssignmentId || old.id || genId("assignment"),
     linkedTodoId: t.id,
-    owner: t.owner, project: t.project || "일반업무", priority: t.priority,
+    owner: t.owner, project: t.project || "", priority: t.priority,
     status: todoStatusToAssign(t.status), start: t.start || t.due || today(),
     due: t.due || today(), type: t.type || "일반업무", title: t.title, detail: t.detail || "",
   });
@@ -327,7 +327,7 @@ function openTodoModal(id = null, defaultStatus = "할 일") {
   const st = getState();
   const t = id === null
     ? { title: "", owner: st.people?.[0]?.name || "", status: defaultStatus,
-        priority: "보통", project: "일반업무", type: "일반업무",
+        priority: "보통", project: "", type: "일반업무",
         start: today(), due: today(), detail: "" }
     : normTodo({ ...st.todos.find(x => x.id === id) });
 
@@ -396,7 +396,7 @@ async function saveTodo() {
     owner: $("todoOwner")?.value || "",
     status: $("todoStatus")?.value || "할 일",
     priority: $("todoPriority")?.value || "보통",
-    project: $("todoProject")?.value || "일반업무",
+    project: $("todoProject")?.value || "",
     type: $("todoType")?.value || "일반업무",
     start: $("todoStart")?.value || today(),
     due: $("todoDue")?.value || today(),
@@ -438,7 +438,7 @@ function openAssignModal(id = null) {
   _editingAssign = id;
   const st = getState();
   const a = id === null
-    ? { owner: st.people?.[0]?.name || "", project: "일반업무", priority: "보통",
+    ? { owner: st.people?.[0]?.name || "", project: "", priority: "보통",
         status: "지시", type: "일반업무", start: today(), due: today(), title: "", detail: "" }
     : normAssign({ ...st.assignments.find(x => x.id === id) });
 
@@ -514,7 +514,7 @@ async function saveAssign() {
   const a = normAssign({
     title:    $("assignmentTitle")?.value || "제목 없는 일정",
     owner:    $("assignmentOwner")?.value || "",
-    project:  $("assignmentProject")?.value || "일반업무",
+    project:  $("assignmentProject")?.value || "",
     type:     $("assignmentType")?.value || "일반업무",
     priority: $("assignmentPriority")?.value || "보통",
     status:   $("assignmentStatus")?.value || "지시",
