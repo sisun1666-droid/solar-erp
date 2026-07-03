@@ -78,6 +78,8 @@ export function wasDeleted(table, id) {
 // ── Supabase 저장 (디바운스) ─────────────────────────────────────────────
 let _saveTimer = null;
 let _svrIds    = {};         // 서버에 있는 ID 추적 (DELETE용)
+let _lastSig     = {};       // 테이블별 마지막 동기화 내용 서명 (변경 감지용)
+let _lastMetaSig = null;
 
 function scheduleSave() {
   if (_saveTimer) clearTimeout(_saveTimer);
@@ -144,27 +146,41 @@ export async function syncFromServer() {
       saveTombs();
     }
 
-    const merged = {};
+    // 실제로 바뀐 테이블만 patch에 담아서, 변경 없는 30초 폴링마다
+    // 전체 화면이 다시 그려지고 불필요한 재저장이 도는 것을 방지
+    const patch = {};
 
     TABLES.forEach(table => {
       const serverItems = (tables[table] ?? []).filter(item => !wasDeleted(table, item.id));
       const localItems  = _state[table] ?? [];
-      const localMap    = Object.fromEntries(localItems.map(x => [x.id, x]));
 
       // 서버 항목 + 로컬에만 있는 항목 (서버에 아직 못 올린 것)
       const serverIds = new Set(serverItems.map(x => x.id));
       const localOnly = localItems.filter(x => x.id && !serverIds.has(x.id) && !wasDeleted(table, x.id));
 
-      merged[table] = [...serverItems, ...localOnly];
-      _svrIds[table] = new Set(serverItems.map(x => x.id));
+      const merged = [...serverItems, ...localOnly];
+      _svrIds[table] = serverIds;
+
+      const sig = JSON.stringify(merged);
+      if (sig !== _lastSig[table]) {
+        _lastSig[table] = sig;
+        patch[table] = merged;
+      }
     });
 
     // config에 저장된 모든 필드(관리자 설정 포함)를 복원 — 테이블(배열) 키와는 겹치지 않음
     const metaPatch = meta ? { ...meta } : {};
+    const metaSig = JSON.stringify(metaPatch);
+    if (metaSig !== _lastMetaSig) {
+      _lastMetaSig = metaSig;
+      Object.assign(patch, metaPatch);
+    }
 
-    setState({ ...merged, ...metaPatch }, { silent: true });
-    saveLocal();
-    emit("stateChange", { state: _state, patch: merged });
+    if (Object.keys(patch).length) {
+      setState(patch, { silent: true });
+      saveLocal();
+      emit("stateChange", { state: _state, patch });
+    }
     emit("syncComplete", { state: _state });
   } catch (e) {
     console.warn("[store] sync failed:", e);

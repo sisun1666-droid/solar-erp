@@ -11,6 +11,8 @@ let _projSearch  = "";
 let _projPhase   = "전체";
 let _projSortKey = "";
 let _projSortDir = "asc";
+let _projPage    = 1;
+const PROJ_PAGE_SIZE = 100;
 
 function normProject(p) {
   if (!p.id)    p.id    = genId("project");
@@ -30,16 +32,23 @@ function renderProjectTable(panel) {
   const phases = ["전체", ...(st.phases || [])];
   const phaseOpts = phases.map(p => `<option${p === _projPhase ? " selected" : ""}>${esc(p)}</option>`).join("");
 
-  const rows = (st.projects || [])
-    .map((p, i) => ({ p, i }))
-    .filter(({ p }) => {
-      if (_projPhase !== "전체" && p.phase !== _projPhase) return false;
-      if (_projSearch) {
-        const hay = Object.values(p).join(" ").toLowerCase();
-        if (!hay.includes(_projSearch.toLowerCase())) return false;
-      }
-      return true;
-    });
+  const filtered = (st.projects || []).filter(p => {
+    if (_projPhase !== "전체" && p.phase !== _projPhase) return false;
+    if (_projSearch) {
+      const hay = Object.values(p).join(" ").toLowerCase();
+      if (!hay.includes(_projSearch.toLowerCase())) return false;
+    }
+    return true;
+  });
+
+  if (_projSortKey) {
+    const dir = _projSortDir === "asc" ? 1 : -1;
+    filtered.sort((a, b) => (a[_projSortKey] || "").localeCompare(b[_projSortKey] || "") * dir);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PROJ_PAGE_SIZE));
+  _projPage = Math.min(Math.max(1, _projPage), totalPages);
+  const rows = filtered.slice((_projPage - 1) * PROJ_PAGE_SIZE, _projPage * PROJ_PAGE_SIZE);
 
   function sortHead(key, label) {
     const mark = _projSortKey === key ? (_projSortDir === "asc" ? " ▲" : " ▼") : "";
@@ -66,7 +75,7 @@ function renderProjectTable(panel) {
           <th style="width:70px">관리</th>
         </tr></thead>
         <tbody>
-          ${rows.map(({ p, i }) => `<tr>
+          ${rows.map(p => `<tr>
             <td title="${esc(p.name)}">${esc(p.name)}</td>
             <td>${esc(p.phase)}</td>
             <td>${esc(p.owner)}</td>
@@ -78,14 +87,21 @@ function renderProjectTable(panel) {
           ${rows.length === 0 ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">현장이 없습니다.</td></tr>` : ""}
         </tbody>
       </table>
+    </div>
+    <div class="toolbar" style="justify-content:center;margin-top:12px">
+      <button class="btn icon" id="projPagePrev" ${_projPage <= 1 ? "disabled" : ""}>‹</button>
+      <span class="meta">${filtered.length === 0 ? "0건" : `${_projPage} / ${totalPages} 페이지 (총 ${filtered.length}건)`}</span>
+      <button class="btn icon" id="projPageNext" ${_projPage >= totalPages ? "disabled" : ""}>›</button>
     </div>`;
 
   panel.querySelector("#projSearch")?.addEventListener("input", e => {
-    _projSearch = e.target.value; renderProjectTable(panel);
+    _projSearch = e.target.value; _projPage = 1; renderProjectTable(panel);
   });
   panel.querySelector("#projPhase")?.addEventListener("change", e => {
-    _projPhase = e.target.value; renderProjectTable(panel);
+    _projPhase = e.target.value; _projPage = 1; renderProjectTable(panel);
   });
+  panel.querySelector("#projPagePrev")?.addEventListener("click", () => { _projPage--; renderProjectTable(panel); });
+  panel.querySelector("#projPageNext")?.addEventListener("click", () => { _projPage++; renderProjectTable(panel); });
   panel.querySelector("#projImportBtn")?.addEventListener("click", () => {
     panel.querySelector("#projCsvInput")?.click();
   });
