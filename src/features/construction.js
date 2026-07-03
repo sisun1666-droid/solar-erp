@@ -1,5 +1,5 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast, $ } from "../utils/index.js";
+import { genId, today, esc, toast, $, onSearchInput } from "../utils/index.js";
 
 let _editing = null;
 let _search  = "";
@@ -145,7 +145,7 @@ function renderTable(panel) {
 
   renderPlantCards();
 
-  panel.querySelector("#conSearch")?.addEventListener("input", e => {
+  onSearchInput(panel.querySelector("#conSearch"), e => {
     _search = e.target.value; renderTable(panel);
   });
   panel.querySelector("#conPhase")?.addEventListener("change", e => {

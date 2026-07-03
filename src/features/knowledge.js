@@ -1,5 +1,5 @@
 import { config } from "../api/supabase.js";
-import { genId, today, esc, toast } from "../utils/index.js";
+import { genId, today, esc, toast, onSearchInput } from "../utils/index.js";
 import { on } from "../store/index.js";
 
 const LS_KEY = "solar-knowledge-v1";
@@ -138,7 +138,7 @@ function render() {
     </div>`;
 
   // 이벤트
-  document.getElementById("kSearch")?.addEventListener("input", e => {
+  onSearchInput(document.getElementById("kSearch"), e => {
     _query = e.target.value; render();
   });
   document.getElementById("kNewBtn")?.addEventListener("click", () => {

@@ -1,5 +1,5 @@
 import { getState, on } from "../store/index.js";
-import { esc, today, kwDisplay } from "../utils/index.js";
+import { esc, today, kwDisplay, onSearchInput } from "../utils/index.js";
 import { openTodoModal } from "./todos.js";
 import { openAssignModal } from "./todos.js";
 import { openConstructionModal } from "./construction.js";
@@ -312,7 +312,7 @@ function render() {
     </div>`;
 
   // 검색 이벤트
-  panel.querySelector("#dashProjSearch")?.addEventListener("input", e => {
+  onSearchInput(panel.querySelector("#dashProjSearch"), e => {
     _projSearch = e.target.value;
     render();
   });

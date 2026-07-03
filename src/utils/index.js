@@ -28,6 +28,22 @@ export function toast(msg, duration = 2500) {
 export const $ = id => document.getElementById(id);
 export const $$ = sel => [...document.querySelectorAll(sel)];
 
+// 검색창 입력 핸들러 — 매 키 입력마다 전체 재렌더가 돌면 한글 조합(IME) 중인
+// input이 통째로 재생성되어 타자가 끊기므로, 조합이 끝난 시점에만 실행하고
+// 재렌더로 새로 생긴 입력창에 포커스·커서를 되돌려준다.
+export function onSearchInput(el, fn) {
+  if (!el) return;
+  const id = el.id;
+  const handler = e => {
+    fn(e);
+    if (!id) return;
+    const fresh = document.getElementById(id);
+    if (fresh) { fresh.focus(); const len = fresh.value.length; fresh.setSelectionRange(len, len); }
+  };
+  el.addEventListener("input", e => { if (!e.isComposing) handler(e); });
+  el.addEventListener("compositionend", handler);
+}
+
 // kW → MW 변환
 export function kwDisplay(kw) {
   if (!kw) return "0kW";

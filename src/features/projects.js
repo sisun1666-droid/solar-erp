@@ -1,5 +1,5 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast, $ } from "../utils/index.js";
+import { genId, today, esc, toast, $, onSearchInput } from "../utils/index.js";
 import * as XLSX from "xlsx";
 
 function statusBadge(s) {
@@ -94,7 +94,7 @@ function renderProjectTable(panel) {
       <button class="btn icon" id="projPageNext" ${_projPage >= totalPages ? "disabled" : ""}>›</button>
     </div>`;
 
-  panel.querySelector("#projSearch")?.addEventListener("input", e => {
+  onSearchInput(panel.querySelector("#projSearch"), e => {
     _projSearch = e.target.value; _projPage = 1; renderProjectTable(panel);
   });
   panel.querySelector("#projPhase")?.addEventListener("change", e => {

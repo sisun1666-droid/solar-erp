@@ -1,5 +1,5 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast, $ } from "../utils/index.js";
+import { genId, today, esc, toast, $, onSearchInput } from "../utils/index.js";
 import { isConnected as gcalConnected, createEvent as gcalCreate, updateEvent as gcalUpdate, deleteEvent as gcalDelete } from "./gcal.js";
 import { goTo } from "../router.js";
 
@@ -298,7 +298,7 @@ function renderBoard() {
     </div>
     <div class="todo-board">${columns}</div>`;
 
-  panel.querySelector("#todoSearch")?.addEventListener("input", renderBoard);
+  onSearchInput(panel.querySelector("#todoSearch"), renderBoard);
 }
 
 // ── 할일 모달 ───────────────────────────────────────────────────────────────
