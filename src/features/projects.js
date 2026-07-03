@@ -12,6 +12,7 @@ let _projPhase   = "전체";
 let _projSortKey = "";
 let _projSortDir = "asc";
 let _projPage    = 1;
+let _projGroupView = false;
 const PROJ_PAGE_SIZE = 100;
 
 function normProject(p) {
@@ -41,12 +42,16 @@ function ensureProjectShell(panel) {
       <div id="projPhaseSlot"></div>
       <button class="btn primary" id="projAddBtn">현장 추가</button>
       <button class="btn" id="projImportBtn">엑셀/CSV 가져오기</button>
+      <button class="btn" id="projGroupToggle">같은 부지 묶어보기</button>
       <input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" id="projCsvInput" style="display:none">
     </div>
     <div id="projResultsWrap"></div>`;
 
   onSearchInput(panel.querySelector("#projSearch"), e => {
     _projSearch = e.target.value; _projPage = 1; renderProjectResults(panel);
+  });
+  panel.querySelector("#projGroupToggle")?.addEventListener("click", () => {
+    _projGroupView = !_projGroupView; _projPage = 1; renderProjectResults(panel);
   });
   panel.querySelector("#projImportBtn")?.addEventListener("click", () => {
     panel.querySelector("#projCsvInput")?.click();
@@ -74,6 +79,9 @@ function renderProjectResults(panel) {
     });
   }
 
+  const groupToggle = panel.querySelector("#projGroupToggle");
+  if (groupToggle) groupToggle.classList.toggle("primary", _projGroupView);
+
   const filtered = (st.projects || []).filter(p => {
     if (_projPhase !== "전체" && p.phase !== _projPhase) return false;
     if (_projSearch) {
@@ -83,7 +91,23 @@ function renderProjectResults(panel) {
     return true;
   });
 
-  if (_projSortKey) {
+  // 같은 부지(정규화한 주소) 기준으로 몇 건이 묶이는지 미리 세어둔다.
+  const groupCount = new Map();
+  for (const p of filtered) {
+    const key = addressGroupKey(p.address);
+    if (!key) continue;
+    groupCount.set(key, (groupCount.get(key) || 0) + 1);
+  }
+
+  if (_projGroupView) {
+    filtered.sort((a, b) => {
+      const ka = addressGroupKey(a.address), kb = addressGroupKey(b.address);
+      const ga = groupCount.get(ka) > 1, gb = groupCount.get(kb) > 1;
+      if (ga !== gb) return ga ? -1 : 1;       // 묶이는 그룹을 위로
+      if (ga && ka !== kb) return ka.localeCompare(kb);
+      return a.name.localeCompare(b.name);
+    });
+  } else if (_projSortKey) {
     const dir = _projSortDir === "asc" ? 1 : -1;
     filtered.sort((a, b) => (a[_projSortKey] || "").localeCompare(b[_projSortKey] || "") * dir);
   }
@@ -97,31 +121,45 @@ function renderProjectResults(panel) {
     return `<button class="sort-head" data-proj-sort="${key}">${esc(label)}${mark}</button>`;
   }
 
+  // 인접한 다른 그룹을 구분하기 쉽도록 그룹 순서에 따라 배경을 번갈아 칠한다.
+  let lastGroupKey = null, bandToggle = false;
+
   const wrap = panel.querySelector("#projResultsWrap");
   if (!wrap) return;
   wrap.innerHTML = `
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th style="width:20%">${sortHead("name","고객/현장")}</th>
-          <th style="width:14%">${sortHead("phase","업무단계")}</th>
-          <th style="width:12%">${sortHead("owner","담당")}</th>
-          <th style="width:13%">${sortHead("due","마감일")}</th>
-          <th style="width:13%">${sortHead("status","상태")}</th>
+          <th style="width:16%">${sortHead("name","고객/현장")}</th>
+          ${_projGroupView ? `<th style="width:9%">묶임</th><th style="width:20%">현장 주소</th><th style="width:11%">사업주</th>` : ""}
+          <th style="width:12%">${sortHead("phase","업무단계")}</th>
+          <th style="width:10%">${sortHead("owner","담당")}</th>
+          <th style="width:11%">${sortHead("due","마감일")}</th>
+          <th style="width:11%">${sortHead("status","상태")}</th>
           <th>다음 액션</th>
           <th style="width:70px">관리</th>
         </tr></thead>
         <tbody>
-          ${rows.map(p => `<tr>
-            <td title="${esc(p.name)}">${esc(p.name)}</td>
-            <td>${esc(p.phase)}</td>
-            <td>${esc(p.owner)}</td>
-            <td>${esc(p.due)}</td>
-            <td>${statusBadge(p.status)}</td>
-            <td title="${esc(p.next)}">${esc((p.next||"").length>40?p.next.slice(0,40)+"…":p.next)}</td>
-            <td><button class="btn icon" data-proj-edit="${esc(p.id)}">수정</button></td>
-          </tr>`).join("")}
-          ${rows.length === 0 ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">현장이 없습니다.</td></tr>` : ""}
+          ${rows.map(p => {
+            const key = addressGroupKey(p.address);
+            const count = key ? (groupCount.get(key) || 1) : 1;
+            if (_projGroupView && key !== lastGroupKey) { bandToggle = !bandToggle; lastGroupKey = key; }
+            const rowStyle = _projGroupView && count > 1 ? ` style="background:${bandToggle ? "#f0f9ff" : "#f5f3ff"}"` : "";
+            return `<tr${rowStyle}>
+              <td title="${esc(p.name)}">${esc(p.name)}</td>
+              ${_projGroupView ? `
+                <td>${count > 1 ? `<span class="badge">${count}건</span>` : ""}</td>
+                <td title="${esc(p.address||"")}">${esc(p.address||"")}</td>
+                <td>${esc(p.bizOwner||"")}</td>` : ""}
+              <td>${esc(p.phase)}</td>
+              <td>${esc(p.owner)}</td>
+              <td>${esc(p.due)}</td>
+              <td>${statusBadge(p.status)}</td>
+              <td title="${esc(p.next)}">${esc((p.next||"").length>40?p.next.slice(0,40)+"…":p.next)}</td>
+              <td><button class="btn icon" data-proj-edit="${esc(p.id)}">수정</button></td>
+            </tr>`;
+          }).join("")}
+          ${rows.length === 0 ? `<tr><td colspan="${_projGroupView ? 10 : 7}" style="text-align:center;padding:24px;color:var(--muted)">현장이 없습니다.</td></tr>` : ""}
         </tbody>
       </table>
     </div>
@@ -173,21 +211,32 @@ function normDate(s) {
 }
 
 const PROJECT_FIELDS = [
-  { key: "name",   label: "현장명 (필수)" },
-  { key: "phase",  label: "업무단계" },
-  { key: "owner",  label: "담당자" },
-  { key: "due",    label: "마감일" },
-  { key: "status", label: "상태" },
-  { key: "next",   label: "다음 액션" },
+  { key: "name",     label: "현장명 (필수)" },
+  { key: "phase",    label: "업무단계" },
+  { key: "owner",    label: "담당자" },
+  { key: "bizOwner", label: "사업주" },
+  { key: "address",  label: "현장 주소" },
+  { key: "due",      label: "마감일" },
+  { key: "status",   label: "상태" },
+  { key: "next",     label: "다음 액션" },
 ];
 
 function guessColumn(headers, key) {
   const hints = {
     name: ["현장", "고객", "발전소", "이름"], phase: ["단계", "phase"],
-    owner: ["담당"], due: ["마감", "일자", "날짜"], status: ["상태"], next: ["액션", "메모", "비고"],
+    owner: ["담당"], bizOwner: ["사업주"], address: ["주소", "지번"],
+    due: ["마감", "일자", "날짜"], status: ["상태"], next: ["액션", "메모", "비고"],
   };
   const idx = headers.findIndex(h => hints[key]?.some(k => h.includes(k)));
   return idx;
+}
+
+// 현장 주소를 정규화해서 같은 부지에 있는 발전소를 하나의 그룹으로 묶는 키.
+// 사업주는 가족 명의 등으로 갈릴 수 있어 그룹 기준에서 제외하고 주소만 본다.
+function addressGroupKey(address) {
+  const s = (address || "").trim();
+  if (!s) return "";
+  return s.replace(/\s+/g, "").replace(/번지|지번/g, "").replace(/[,.\-]/g, "");
 }
 
 function openCsvMapModal(headers, dataRows) {
@@ -238,11 +287,10 @@ function openCsvMapModal(headers, dataRows) {
       const name = (row[map.name] || "").trim();
       if (!name) continue;
       const fields = {};
-      if (map.phase  >= 0) fields.phase  = (row[map.phase]  || "").trim();
-      if (map.owner  >= 0) fields.owner  = (row[map.owner]  || "").trim();
-      if (map.due    >= 0) fields.due    = normDate(row[map.due]);
-      if (map.status >= 0) fields.status = (row[map.status] || "").trim();
-      if (map.next   >= 0) fields.next   = (row[map.next]   || "").trim();
+      for (const f of PROJECT_FIELDS) {
+        if (f.key === "name" || !(map[f.key] >= 0)) continue;
+        fields[f.key] = f.key === "due" ? normDate(row[map[f.key]]) : (row[map[f.key]] || "").trim();
+      }
 
       const existingIdx = byName.get(name);
       if (existingIdx !== undefined) {
@@ -266,7 +314,7 @@ function openProjectModal(id = null) {
   _editProject = id;
   const st = getState();
   const p = id === null
-    ? { name: "", phase: (st.phases||[])[0]||"고객상담", owner: "", due: today(), status: "정상", next: "" }
+    ? { name: "", phase: (st.phases||[])[0]||"고객상담", owner: "", bizOwner: "", address: "", due: today(), status: "정상", next: "" }
     : { ...(st.projects.find(x => x.id === id)) };
 
   const phaseOpts = (st.phases || []).map(x => `<option${x === p.phase ? " selected" : ""}>${esc(x)}</option>`).join("");
@@ -292,6 +340,8 @@ function openProjectModal(id = null) {
         <div class="form-row full"><label>고객/현장명</label><input class="field" id="projName" value="${esc(p.name)}" placeholder="현장명"></div>
         <div class="form-row"><label>업무단계</label><select class="field" id="projPhaseModal">${phaseOpts}</select></div>
         <div class="form-row"><label>담당자</label><input class="field" id="projOwner" value="${esc(p.owner||"")}"></div>
+        <div class="form-row"><label>사업주</label><input class="field" id="projBizOwner" value="${esc(p.bizOwner||"")}"></div>
+        <div class="form-row full"><label>현장 주소</label><input class="field" id="projAddress" value="${esc(p.address||"")}"></div>
         <div class="form-row"><label>마감일</label><input class="field" type="date" id="projDue" value="${esc(p.due)}"></div>
         <div class="form-row"><label>상태</label><select class="field" id="projStatus">${statOpts}</select></div>
         <div class="form-row full"><label>다음 액션</label><textarea class="field" id="projNext">${esc(p.next||"")}</textarea></div>
@@ -317,6 +367,8 @@ function saveProject() {
     name:  $("projName")?.value || "",
     phase: $("projPhaseModal")?.value || "",
     owner: $("projOwner")?.value || "",
+    bizOwner: $("projBizOwner")?.value || "",
+    address:  $("projAddress")?.value || "",
     due:   $("projDue")?.value || today(),
     status:$("projStatus")?.value || "정상",
     next:  $("projNext")?.value || "",
