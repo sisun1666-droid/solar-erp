@@ -1,5 +1,6 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
 import { genId, today, esc, toast, $ } from "../utils/index.js";
+import * as XLSX from "xlsx";
 
 function statusBadge(s) {
   return `<span class="badge">${esc(s)}</span>`;
@@ -50,6 +51,8 @@ function renderProjectTable(panel) {
       <input class="search" id="projSearch" placeholder="고객/현장 검색" value="${esc(_projSearch)}" style="max-width:240px">
       <select class="field" id="projPhase" style="max-width:150px">${phaseOpts}</select>
       <button class="btn primary" id="projAddBtn">현장 추가</button>
+      <button class="btn" id="projImportBtn">엑셀/CSV 가져오기</button>
+      <input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" id="projCsvInput" style="display:none">
     </div>
     <div class="table-wrap">
       <table>
@@ -70,7 +73,7 @@ function renderProjectTable(panel) {
             <td>${esc(p.due)}</td>
             <td>${statusBadge(p.status)}</td>
             <td title="${esc(p.next)}">${esc((p.next||"").length>40?p.next.slice(0,40)+"…":p.next)}</td>
-            <td><button class="btn icon" data-proj-edit="${i}">수정</button></td>
+            <td><button class="btn icon" data-proj-edit="${esc(p.id)}">수정</button></td>
           </tr>`).join("")}
           ${rows.length === 0 ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">현장이 없습니다.</td></tr>` : ""}
         </tbody>
@@ -83,17 +86,158 @@ function renderProjectTable(panel) {
   panel.querySelector("#projPhase")?.addEventListener("change", e => {
     _projPhase = e.target.value; renderProjectTable(panel);
   });
+  panel.querySelector("#projImportBtn")?.addEventListener("click", () => {
+    panel.querySelector("#projCsvInput")?.click();
+  });
+  panel.querySelector("#projCsvInput")?.addEventListener("change", async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const isExcel = /\.xlsx?$/i.test(file.name);
+    const rows = isExcel ? await parseExcel(file) : parseCSV(await file.text());
+    if (rows.length < 2) { toast("파일에 데이터가 없습니다."); return; }
+    openCsvMapModal(rows[0], rows.slice(1));
+  });
 }
 
-function openProjectModal(idx = null) {
-  _editProject = idx;
+// ── CSV 가져오기 ────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false; }
+      else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.length > 1 || row[0] !== "") rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+async function parseExcel(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+}
+
+function normDate(s) {
+  s = (s || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  return isNaN(d) ? today() : d.toISOString().slice(0, 10);
+}
+
+const PROJECT_FIELDS = [
+  { key: "name",   label: "현장명 (필수)" },
+  { key: "phase",  label: "업무단계" },
+  { key: "owner",  label: "담당자" },
+  { key: "due",    label: "마감일" },
+  { key: "status", label: "상태" },
+  { key: "next",   label: "다음 액션" },
+];
+
+function guessColumn(headers, key) {
+  const hints = {
+    name: ["현장", "고객", "발전소", "이름"], phase: ["단계", "phase"],
+    owner: ["담당"], due: ["마감", "일자", "날짜"], status: ["상태"], next: ["액션", "메모", "비고"],
+  };
+  const idx = headers.findIndex(h => hints[key]?.some(k => h.includes(k)));
+  return idx;
+}
+
+function openCsvMapModal(headers, dataRows) {
+  let overlay = $("csvImportOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "csvImportOverlay";
+    overlay.className = "overlay";
+    document.body.appendChild(overlay);
+  }
+  const colOpts = (selected) => [`<option value="-1">-- 없음 --</option>`]
+    .concat(headers.map((h, i) => `<option value="${i}"${i === selected ? " selected" : ""}>${esc(h)}</option>`))
+    .join("");
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-head">
+        <h2>CSV 열 매칭</h2>
+        <button class="btn icon" id="csvModalClose">×</button>
+      </div>
+      <p style="color:var(--muted);margin:0 0 12px">${dataRows.length}개 행을 발견했습니다. 각 항목을 CSV의 어느 열에서 가져올지 선택하세요.</p>
+      <div class="form-grid">
+        ${PROJECT_FIELDS.map(f => `
+          <div class="form-row">
+            <label>${esc(f.label)}</label>
+            <select class="field" data-csv-map="${f.key}">${colOpts(guessColumn(headers, f.key))}</select>
+          </div>`).join("")}
+      </div>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn primary" id="csvImportConfirm">가져오기</button>
+      </div>
+    </div>`;
+  overlay.classList.remove("hidden");
+  overlay.classList.add("open");
+
+  const close = () => { overlay.classList.remove("open"); overlay.classList.add("hidden"); };
+  $("csvModalClose")?.addEventListener("click", close);
+  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  $("csvImportConfirm")?.addEventListener("click", () => {
+    const map = {};
+    overlay.querySelectorAll("[data-csv-map]").forEach(sel => { map[sel.dataset.csvMap] = Number(sel.value); });
+    if (map.name === -1) { toast("현장명 열을 선택해주세요."); return; }
+    const st = getState();
+    const projects = [...(st.projects || [])];
+    const byName = new Map(projects.map((p, i) => [p.name, i]));
+    let added = 0, updated = 0;
+    for (const row of dataRows) {
+      const name = (row[map.name] || "").trim();
+      if (!name) continue;
+      const fields = {};
+      if (map.phase  >= 0) fields.phase  = (row[map.phase]  || "").trim();
+      if (map.owner  >= 0) fields.owner  = (row[map.owner]  || "").trim();
+      if (map.due    >= 0) fields.due    = normDate(row[map.due]);
+      if (map.status >= 0) fields.status = (row[map.status] || "").trim();
+      if (map.next   >= 0) fields.next   = (row[map.next]   || "").trim();
+
+      const existingIdx = byName.get(name);
+      if (existingIdx !== undefined) {
+        projects[existingIdx] = normProject({ ...projects[existingIdx], ...fields, name });
+        updated++;
+      } else {
+        const p = normProject({ name, status: "정상", ...fields });
+        projects.push(p);
+        byName.set(name, projects.length - 1);
+        added++;
+      }
+    }
+    setState({ projects });
+    close();
+    toast(`신규 ${added}건, 갱신 ${updated}건 반영했습니다.`);
+    renderProjects();
+  });
+}
+
+function openProjectModal(id = null) {
+  _editProject = id;
   const st = getState();
-  const p = idx === null
+  const p = id === null
     ? { name: "", phase: (st.phases||[])[0]||"고객상담", owner: "", due: today(), status: "정상", next: "" }
-    : { ...(st.projects[idx]) };
+    : { ...(st.projects.find(x => x.id === id)) };
 
   const phaseOpts = (st.phases || []).map(x => `<option${x === p.phase ? " selected" : ""}>${esc(x)}</option>`).join("");
-  const statOpts  = (st.statuses || ["정상","대기","보완","지연","완료"]).map(s =>
+  const knownStatuses = st.statuses || ["정상","대기","보완","지연","완료"];
+  const statusList = knownStatuses.includes(p.status) || !p.status ? knownStatuses : [...knownStatuses, p.status];
+  const statOpts  = statusList.map(s =>
     `<option${s === p.status ? " selected" : ""}>${esc(s)}</option>`).join("");
 
   let overlay = $("projectEditOverlay");
@@ -106,7 +250,7 @@ function openProjectModal(idx = null) {
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-head">
-        <h2>${idx === null ? "현장 추가" : "현장 수정"}</h2>
+        <h2>${id === null ? "현장 추가" : "현장 수정"}</h2>
         <button class="btn icon" id="projModalClose">×</button>
       </div>
       <div class="form-grid">
@@ -119,7 +263,7 @@ function openProjectModal(idx = null) {
       </div>
       <div class="toolbar" style="margin-top:14px">
         <button class="btn primary" id="projSaveBtn">저장</button>
-        ${idx !== null ? `<button class="btn danger" id="projDeleteBtn">삭제</button>` : ""}
+        ${id !== null ? `<button class="btn danger" id="projDeleteBtn">삭제</button>` : ""}
       </div>
     </div>`;
   overlay.classList.remove("hidden");
@@ -127,7 +271,7 @@ function openProjectModal(idx = null) {
 
   $("projModalClose")?.addEventListener("click", () => { overlay.classList.remove("open"); overlay.classList.add("hidden"); });
   $("projSaveBtn")?.addEventListener("click", saveProject);
-  $("projDeleteBtn")?.addEventListener("click", () => deleteProject(idx));
+  $("projDeleteBtn")?.addEventListener("click", () => deleteProject(id));
   overlay.addEventListener("click", e => { if (e.target === overlay) { overlay.classList.remove("open"); overlay.classList.add("hidden"); } });
 }
 
@@ -143,8 +287,10 @@ function saveProject() {
     next:  $("projNext")?.value || "",
   });
   if (_editProject !== null) {
-    p.id = projects[_editProject].id;
-    projects[_editProject] = p;
+    const idx = projects.findIndex(x => x.id === _editProject);
+    if (idx < 0) { toast("현장을 찾을 수 없습니다. 다시 시도해주세요."); return; }
+    p.id = projects[idx].id;
+    projects[idx] = p;
   } else {
     projects.unshift(p);
   }
@@ -155,11 +301,13 @@ function saveProject() {
   renderProjects();
 }
 
-function deleteProject(idx) {
+function deleteProject(id) {
   if (!confirm("이 현장을 삭제할까요?")) return;
   const st = getState();
   const projects = [...(st.projects || [])];
-  if (projects[idx]?.id) markDeleted("projects", projects[idx].id);
+  const idx = projects.findIndex(x => x.id === id);
+  if (idx < 0) { toast("현장을 찾을 수 없습니다. 다시 시도해주세요."); return; }
+  markDeleted("projects", id);
   projects.splice(idx, 1);
   setState({ projects });
   const o = $("projectEditOverlay");
@@ -171,7 +319,7 @@ function deleteProject(idx) {
 function onDocClick(e) {
   const t = e.target.closest("button") || e.target;
   if (t.id === "projAddBtn") { openProjectModal(); return; }
-  if (t.dataset.projEdit !== undefined) { openProjectModal(Number(t.dataset.projEdit)); return; }
+  if (t.dataset.projEdit !== undefined) { openProjectModal(t.dataset.projEdit); return; }
   if (t.dataset.projSort) {
     if (_projSortKey === t.dataset.projSort) _projSortDir = _projSortDir === "asc" ? "desc" : "asc";
     else { _projSortKey = t.dataset.projSort; _projSortDir = "asc"; }

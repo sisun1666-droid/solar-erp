@@ -132,29 +132,29 @@ async function pushAssignToGcal(a) {
 }
 
 // ── 삭제 ────────────────────────────────────────────────────────────────────
-function deleteTodo(idx) {
+function deleteTodo(id) {
   const st = getState();
   const todos = [...st.todos], assigns = [...st.assignments];
-  const t = todos[idx];
+  const t = todos.find(x => x.id === id);
   if (!t) return;
   const linked = assigns.find(a => a.id === t.linkedAssignmentId);
   markDeleted("todos", t.id);
   if (t.linkedAssignmentId) markDeleted("assignments", t.linkedAssignmentId);
-  todos.splice(idx, 1);
+  const newTodos = todos.filter(x => x.id !== id);
   const newAssigns = assigns.filter(a => a.id !== t.linkedAssignmentId);
-  setState({ todos, assignments: newAssigns });
+  setState({ todos: newTodos, assignments: newAssigns });
   if (linked?.gcalEventId) gcalDelete(linked.gcalEventId).catch(() => {});
 }
-function deleteAssign(idx) {
+function deleteAssign(id) {
   const st = getState();
   const todos = [...st.todos], assigns = [...st.assignments];
-  const a = assigns[idx];
+  const a = assigns.find(x => x.id === id);
   if (!a) return;
   markDeleted("assignments", a.id);
   if (a.linkedTodoId) markDeleted("todos", a.linkedTodoId);
-  assigns.splice(idx, 1);
+  const newAssigns = assigns.filter(x => x.id !== id);
   const newTodos = todos.filter(t => t.id !== a.linkedTodoId);
-  setState({ assignments: assigns, todos: newTodos });
+  setState({ assignments: newAssigns, todos: newTodos });
   if (a.gcalEventId) gcalDelete(a.gcalEventId).catch(() => {});
 }
 
@@ -167,10 +167,11 @@ function dueBadge(t) {
 }
 
 // ── 드래그로 상태 변경 ──────────────────────────────────────────────────────
-function moveTodoStatus(idx, newStatus) {
+function moveTodoStatus(id, newStatus) {
   const st = getState();
   const todos = [...(st.todos || [])];
   const assigns = [...(st.assignments || [])];
+  const idx = todos.findIndex(x => x.id === id);
   const t = todos[idx];
   if (!t || t.status === newStatus) return;
   todos[idx] = stampCompletion({ ...t, status: newStatus }, t.status);
@@ -184,7 +185,7 @@ function initDragEvents(panel) {
   panel.addEventListener("dragstart", e => {
     const card = e.target.closest(".todo-card");
     if (!card) return;
-    e.dataTransfer.setData("text/plain", card.dataset.todoIdx);
+    e.dataTransfer.setData("text/plain", card.dataset.todoId);
     card.classList.add("dragging");
   });
   panel.addEventListener("dragend", e => {
@@ -204,8 +205,8 @@ function initDragEvents(panel) {
     if (!col) return;
     e.preventDefault();
     col.classList.remove("drag-over");
-    const idx = Number(e.dataTransfer.getData("text/plain"));
-    if (!Number.isNaN(idx)) moveTodoStatus(idx, col.dataset.todoDropStatus);
+    const id = e.dataTransfer.getData("text/plain");
+    if (id) moveTodoStatus(id, col.dataset.todoDropStatus);
   });
 }
 
@@ -228,7 +229,7 @@ function renderBoard() {
   const owners = ["전체", ...people.map(p => p.name)];
 
   function matches(t) {
-    return [t.title, t.detail, t.owner, t.status, t.priority].join(" ").toLowerCase().includes(q.toLowerCase());
+    return [t.title, t.detail, t.owner, t.status, t.priority, t.project, t.type].join(" ").toLowerCase().includes(q.toLowerCase());
   }
   const filtered = todos
     .map((t, i) => ({ t, i }))
@@ -253,14 +254,15 @@ function renderBoard() {
   const columns = STATUSES.map(s => {
     const rows = filtered.filter(x => x.t.status === s);
     const cards = rows.length
-      ? rows.map(({ t, i }) => `
-          <div class="todo-card" draggable="true" data-todo-idx="${i}" style="border-left:4px solid ${COL_STYLE.cbr[s]||"#cbd5e1"}">
+      ? rows.map(({ t }) => `
+          <div class="todo-card" draggable="true" data-todo-id="${esc(t.id)}" style="border-left:4px solid ${COL_STYLE.cbr[s]||"#cbd5e1"}">
             <div class="todo-card-title">${esc(t.title)} ${dueBadge(t)}</div>
+            ${t.project && t.project !== "일반업무" ? `<div class="todo-card-meta" style="font-weight:600">${esc(t.project)}</div>` : ""}
             <div class="todo-card-meta">${esc(t.owner||"담당 미정")} · ${esc(t.priority||"보통")} · ${esc(t.due||"")}</div>
             ${t.detail ? `<div class="todo-card-meta" style="margin-top:2px">${esc(t.detail.length > 40 ? t.detail.slice(0, 40) + "…" : t.detail)}</div>` : ""}
             <div class="row-actions" style="margin-top:7px">
-              <button class="btn icon" data-edit-todo="${i}">수정</button>
-              <button class="btn icon danger" data-delete-todo="${i}">삭제</button>
+              <button class="btn icon" data-edit-todo="${esc(t.id)}">수정</button>
+              <button class="btn icon danger" data-delete-todo="${esc(t.id)}">삭제</button>
             </div>
           </div>`).join("")
       : `<div class="meta" style="font-size:12px;padding:8px 4px">비어 있음</div>`;
@@ -300,13 +302,14 @@ function renderBoard() {
 }
 
 // ── 할일 모달 ───────────────────────────────────────────────────────────────
-function openTodoModal(idx = null, defaultStatus = "할 일") {
-  _editingTodo = idx;
+function openTodoModal(id = null, defaultStatus = "할 일") {
+  _editingTodo = id;
   const st = getState();
-  const t = idx === null
+  const t = id === null
     ? { title: "", owner: st.people?.[0]?.name || "", status: defaultStatus,
-        priority: "보통", start: today(), due: today(), detail: "" }
-    : normTodo({ ...st.todos[idx] });
+        priority: "보통", project: "일반업무", type: "일반업무",
+        start: today(), due: today(), detail: "" }
+    : normTodo({ ...st.todos.find(x => x.id === id) });
 
   const ownerOpts = (st.people || []).map(p =>
     `<option${p.name === t.owner ? " selected" : ""}>${esc(p.name)}</option>`
@@ -316,6 +319,9 @@ function openTodoModal(idx = null, defaultStatus = "할 일") {
     `<option${s === t.status ? " selected" : ""}>${esc(s)}</option>`).join("");
   const prioOpts = PRIORITIES.map(p =>
     `<option${p === t.priority ? " selected" : ""}>${esc(p)}</option>`).join("");
+  const projectListOpts = (st.projects || []).map(p => `<option value="${esc(p.name)}">`).join("");
+  const typeOpts = ASSIGN_TYPES.map(ty =>
+    `<option${ty === t.type ? " selected" : ""}>${esc(ty)}</option>`).join("");
 
   $("todoFormGrid").innerHTML = `
     <div class="form-row full">
@@ -335,6 +341,19 @@ function openTodoModal(idx = null, defaultStatus = "할 일") {
       <select class="field" id="todoPriority">${prioOpts}</select>
     </div>
     <div class="form-row">
+      <label>프로젝트</label>
+      <input class="field" id="todoProject" list="todoProjectList" value="${esc(t.project || "")}" placeholder="현장명 입력 또는 선택">
+      <datalist id="todoProjectList">${projectListOpts}</datalist>
+    </div>
+    <div class="form-row">
+      <label>구분</label>
+      <select class="field" id="todoType">${typeOpts}</select>
+    </div>
+    <div class="form-row">
+      <label>시작일</label>
+      <input class="field" type="date" id="todoStart" value="${esc(t.start)}">
+    </div>
+    <div class="form-row">
       <label>마감일</label>
       <input class="field" type="date" id="todoDue" value="${esc(t.due)}">
     </div>
@@ -343,7 +362,7 @@ function openTodoModal(idx = null, defaultStatus = "할 일") {
       <textarea class="field" id="todoDetail">${esc(t.detail || "")}</textarea>
     </div>`;
 
-  $("deleteTodoBtn")?.classList.toggle("hidden", idx === null);
+  $("deleteTodoBtn")?.classList.toggle("hidden", id === null);
   $("todoModal")?.classList.remove("hidden");
   $("todoModal")?.classList.add("open");
 }
@@ -357,21 +376,25 @@ async function saveTodo() {
     owner: $("todoOwner")?.value || "",
     status: $("todoStatus")?.value || "할 일",
     priority: $("todoPriority")?.value || "보통",
+    project: $("todoProject")?.value || "일반업무",
+    type: $("todoType")?.value || "일반업무",
+    start: $("todoStart")?.value || today(),
     due: $("todoDue")?.value || today(),
-    start: $("todoDue")?.value || today(),
     detail: $("todoDetail")?.value || "",
   });
+  let todoIdx = 0;
   if (_editingTodo !== null) {
-    t.id = todos[_editingTodo].id;
-    t.linkedAssignmentId = todos[_editingTodo].linkedAssignmentId;
-    stampCompletion(t, todos[_editingTodo].status);
-    todos[_editingTodo] = t;
+    todoIdx = todos.findIndex(x => x.id === _editingTodo);
+    if (todoIdx < 0) { toast("할일을 찾을 수 없습니다. 다시 시도해주세요."); return; }
+    t.id = todos[todoIdx].id;
+    t.linkedAssignmentId = todos[todoIdx].linkedAssignmentId;
+    stampCompletion(t, todos[todoIdx].status);
+    todos[todoIdx] = t;
   } else {
     stampCompletion(t, null);
     todos.unshift(t);
   }
   const tmpState = { ...st, todos, assignments: assigns };
-  const todoIdx = _editingTodo !== null ? _editingTodo : 0;
   syncTodoToAssign(tmpState, todoIdx);
   const assignIdx = tmpState.assignments.findIndex(a => a.id === tmpState.todos[todoIdx].linkedAssignmentId);
   if (assignIdx >= 0) {
@@ -391,20 +414,19 @@ function closeTodoModal() {
 }
 
 // ── 일정(assignment) 모달 ───────────────────────────────────────────────────
-function openAssignModal(idx = null) {
-  _editingAssign = idx;
+function openAssignModal(id = null) {
+  _editingAssign = id;
   const st = getState();
-  const a = idx === null
+  const a = id === null
     ? { owner: st.people?.[0]?.name || "", project: "일반업무", priority: "보통",
         status: "지시", type: "일반업무", start: today(), due: today(), title: "", detail: "" }
-    : normAssign({ ...st.assignments[idx] });
+    : normAssign({ ...st.assignments.find(x => x.id === id) });
 
   const ownerOpts = (st.people || []).map(p =>
     `<option${p.name === a.owner ? " selected" : ""}>${esc(p.name)}</option>`
   ).join("") || `<option>${esc(a.owner || "담당 미정")}</option>`;
 
-  const projOpts = (st.projects?.length ? st.projects : [{ name: "일반업무" }]).map(p =>
-    `<option${p.name === a.project ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+  const projectListOpts = (st.projects || []).map(p => `<option value="${esc(p.name)}">`).join("");
   const prioOpts = PRIORITIES.map(p =>
     `<option${p === a.priority ? " selected" : ""}>${esc(p)}</option>`).join("");
   const statusOpts = ASSIGN_STATUSES.map(s =>
@@ -423,7 +445,8 @@ function openAssignModal(idx = null) {
     </div>
     <div class="form-row">
       <label>프로젝트</label>
-      <select class="field" id="assignmentProject">${projOpts}</select>
+      <input class="field" id="assignmentProject" list="assignProjectList" value="${esc(a.project || "")}" placeholder="현장명 입력 또는 선택">
+      <datalist id="assignProjectList">${projectListOpts}</datalist>
     </div>
     <div class="form-row">
       <label>구분</label>
@@ -449,7 +472,7 @@ function openAssignModal(idx = null) {
       <label>내용</label>
       <textarea class="field" id="assignmentDetail">${esc(a.detail || "")}</textarea>
     </div>
-    ${idx === null ? `
+    ${id === null ? `
     <div class="form-row">
       <label>반복</label>
       <select class="field" id="assignmentRepeat">${REPEAT_OPTIONS.map(r => `<option>${esc(r)}</option>`).join("")}</select>
@@ -459,7 +482,7 @@ function openAssignModal(idx = null) {
       <input class="field" type="number" id="assignmentRepeatCount" value="4" min="2" max="52">
     </div>` : ""}`;
 
-  $("deleteAssignmentBtn")?.classList.toggle("hidden", idx === null);
+  $("deleteAssignmentBtn")?.classList.toggle("hidden", id === null);
   $("assignmentModal")?.classList.remove("hidden");
   $("assignmentModal")?.classList.add("open");
 }
@@ -479,12 +502,14 @@ async function saveAssign() {
     due:      $("assignmentDue")?.value || today(),
     detail:   $("assignmentDetail")?.value || "",
   });
-  const assignIdx = _editingAssign !== null ? _editingAssign : 0;
+  let assignIdx = 0;
   if (_editingAssign !== null) {
-    a.id = assigns[_editingAssign].id;
-    a.linkedTodoId = assigns[_editingAssign].linkedTodoId;
-    a.gcalEventId = assigns[_editingAssign].gcalEventId;
-    assigns[_editingAssign] = a;
+    assignIdx = assigns.findIndex(x => x.id === _editingAssign);
+    if (assignIdx < 0) { toast("일정을 찾을 수 없습니다. 다시 시도해주세요."); return; }
+    a.id = assigns[assignIdx].id;
+    a.linkedTodoId = assigns[assignIdx].linkedTodoId;
+    a.gcalEventId = assigns[assignIdx].gcalEventId;
+    assigns[assignIdx] = a;
   } else {
     assigns.unshift(a);
   }
@@ -527,7 +552,7 @@ function onDocClick(e) {
   if (t.id === "todoAddBtn")              return openTodoModal();
   if (t.id === "todoGoCalendarBtn")       return goTo("assignment");
   if (t.dataset.addTodoStatus)            return openTodoModal(null, t.dataset.addTodoStatus);
-  if (t.dataset.editTodo !== undefined)   return openTodoModal(Number(t.dataset.editTodo));
+  if (t.dataset.editTodo !== undefined)   return openTodoModal(t.dataset.editTodo);
   if (t.dataset.todoStatusFilter)         { _statusFilter = t.dataset.todoStatusFilter; renderBoard(); return; }
   if (t.dataset.todoOwnerFilter)          { _ownerFilter  = t.dataset.todoOwnerFilter;  renderBoard(); return; }
   if (t.dataset.todoToggleCompleted)      { _completedExpanded = !_completedExpanded;   renderBoard(); return; }
@@ -543,7 +568,7 @@ function onDocClick(e) {
   }
   if (t.dataset.deleteTodo !== undefined) {
     if (confirm("이 할일을 삭제할까요?")) {
-      deleteTodo(Number(t.dataset.deleteTodo));
+      deleteTodo(t.dataset.deleteTodo);
       toast("삭제했습니다.");
       renderBoard();
     }
@@ -560,7 +585,7 @@ function onDocClick(e) {
     }
     return;
   }
-  if (t.dataset.editAssignment !== undefined) return openAssignModal(Number(t.dataset.editAssignment));
+  if (t.dataset.editAssignment !== undefined) return openAssignModal(t.dataset.editAssignment);
 
   // 모달 닫기
   if (t.dataset.closeModal === "todoModal")       closeTodoModal();

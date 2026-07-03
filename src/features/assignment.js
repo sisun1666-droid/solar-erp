@@ -35,11 +35,12 @@ function localDate(d) {
   return `${y}-${m}-${dd}`;
 }
 
-function taskHtml(a, idx) {
+function taskHtml(a) {
   const c = urgencyColor(a);
+  const projectLabel = a.project && a.project !== "일반업무" ? `${esc(a.project)} · ` : "";
   return `<div class="calendar-task" style="border-left-color:${esc(c)};background:${esc(c)}1c"
-    data-open-assignment="${idx}" title="${esc(a.owner)} · ${esc(a.title)} · ${esc(a.status)} · ${esc(a.priority)}">
-    <span class="color-dot" style="background:${esc(c)}"></span>${esc(a.title)}
+    data-open-assignment="${esc(a.id)}" title="${esc(a.project||"")} · ${esc(a.owner)} · ${esc(a.title)} · ${esc(a.status)} · ${esc(a.priority)}">
+    <span class="color-dot" style="background:${esc(c)}"></span>${projectLabel}${esc(a.title)}
   </div>`;
 }
 
@@ -53,14 +54,13 @@ function dayCellHtml(iso, tasks, extraClass = "") {
     : (rest > 0 ? `<button class="cal-more" data-cal-expand="${esc(iso)}">+${rest}개 더</button>` : "");
   return `<div class="${cls}">
     <div class="day-number">${Number(iso.slice(-2))}</div>
-    ${shown.map(t => taskHtml(t, t.__idx)).join("")}
+    ${shown.map(t => taskHtml(t)).join("")}
     ${toggle}
   </div>`;
 }
 
 function tasksFor(assigns, iso) {
   return assigns
-    .map((a, i) => ({ ...a, __idx: i }))
     .filter(a =>
       (_personFilter === "전체" || a.owner === _personFilter) &&
       (a.start === iso || a.due === iso)
@@ -179,7 +179,7 @@ function onDocClick(e) {
   if (t.dataset.calExpand)       { _expandedDays.add(t.dataset.calExpand); render(); return; }
   if (t.dataset.calCollapse)     { _expandedDays.delete(t.dataset.calCollapse); render(); return; }
   if (t.dataset.openAssignment !== undefined) {
-    openAssignModal(Number(t.dataset.openAssignment));
+    openAssignModal(t.dataset.openAssignment);
   }
 }
 

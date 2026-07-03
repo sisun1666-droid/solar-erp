@@ -194,8 +194,8 @@ function render() {
 
   // 오늘 선택 날짜 할일/일정
   const dateItems = {
-    todos:   todos.map((t, i) => ({ t, i })).filter(({ t }) => t.due === _selDate || t.start === _selDate),
-    assigns: assigns.map((a, i) => ({ a, i })).filter(({ a }) => a.due === _selDate || a.start === _selDate),
+    todos:   todos.filter(t => t.due === _selDate || t.start === _selDate),
+    assigns: assigns.filter(a => a.due === _selDate || a.start === _selDate),
   };
 
   // 최근 지연/주목
@@ -294,13 +294,13 @@ function render() {
             <button class="btn" data-dash-today>오늘</button>
           </div>
           <div class="today-list">
-            ${dateItems.todos.map(({ t, i }) =>
-              `<button class="today-item" data-edit-todo="${i}">
+            ${dateItems.todos.map(t =>
+              `<button class="today-item" data-edit-todo="${esc(t.id)}">
                 <strong>${esc(t.title)}</strong>
                 <div class="meta">${esc(t.owner)} · ${esc(t.status)} · 할일</div>
               </button>`).join("")}
-            ${dateItems.assigns.map(({ a, i }) =>
-              `<button class="today-item" data-open-assignment="${i}">
+            ${dateItems.assigns.map(a =>
+              `<button class="today-item" data-open-assignment="${esc(a.id)}">
                 <strong>${esc(a.title)}</strong>
                 <div class="meta">${esc(a.owner)} · ${esc(a.status)} · 일정</div>
               </button>`).join("")}
@@ -341,8 +341,8 @@ function onDocClick(e) {
   if (t.dataset.dashToday)   { _selDate = today(); render(); return; }
   if (t.dataset.dashAddCon)  { openConstructionModal(); return; }
   if (t.dataset.dashCon)     { openConstructionModal(Number(t.dataset.dashCon)); return; }
-  if (t.dataset.editTodo !== undefined)    openTodoModal(Number(t.dataset.editTodo));
-  if (t.dataset.openAssignment !== undefined) openAssignModal(Number(t.dataset.openAssignment));
+  if (t.dataset.editTodo !== undefined)    openTodoModal(t.dataset.editTodo);
+  if (t.dataset.openAssignment !== undefined) openAssignModal(t.dataset.openAssignment);
 }
 
 export function initDashboard() {
