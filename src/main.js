@@ -27,10 +27,6 @@ document.addEventListener("click", e => {
     m?.classList.remove("open");
     m?.classList.add("hidden");
   }
-  if (e.target.classList.contains("overlay")) {
-    e.target.classList.remove("open");
-    e.target.classList.add("hidden");
-  }
 });
 
 async function boot() {

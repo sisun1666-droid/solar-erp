@@ -86,7 +86,6 @@ function openMeetingModal(idx = null) {
   $("meetingModalClose")?.addEventListener("click", closeMeetingModal);
   $("mtgSaveBtn")?.addEventListener("click", saveMeeting);
   $("mtgDeleteBtn")?.addEventListener("click", () => deleteMeeting(idx));
-  overlay.addEventListener("click", e => { if (e.target === overlay) closeMeetingModal(); });
 }
 
 function closeMeetingModal() {

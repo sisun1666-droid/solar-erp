@@ -319,7 +319,6 @@ function openCsvMapModal(headers, dataRows) {
 
   const close = () => { overlay.classList.remove("open"); overlay.classList.add("hidden"); };
   $("csvModalClose")?.addEventListener("click", close);
-  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
   $("csvImportConfirm")?.addEventListener("click", () => {
     const map = {};
     overlay.querySelectorAll("[data-csv-map]").forEach(sel => { map[sel.dataset.csvMap] = Number(sel.value); });
@@ -329,7 +328,7 @@ function openCsvMapModal(headers, dataRows) {
     // 발전소명이 우연히 겹치는(서로 다른 현장) 경우가 실제로 있어서, 담당자
     // 정보가 있으면 "이름+담당자"로 더 확실하게 매칭한다. 담당자를 안 가져오는
     // 파일이면 예전처럼 이름만으로 매칭한다.
-    const keyOf = (name, owner) => name + " " + (owner || "");
+    const keyOf = (name, owner) => name + " " + (owner || "");
     const byKey  = new Map(projects.map((p, i) => [keyOf(p.name, p.owner), i]));
     const byName = new Map(projects.map((p, i) => [p.name, i]));
     let added = 0, updated = 0;
@@ -409,7 +408,6 @@ function openProjectModal(id = null) {
   $("projModalClose")?.addEventListener("click", () => { overlay.classList.remove("open"); overlay.classList.add("hidden"); });
   $("projSaveBtn")?.addEventListener("click", saveProject);
   $("projDeleteBtn")?.addEventListener("click", () => deleteProject(id));
-  overlay.addEventListener("click", e => { if (e.target === overlay) { overlay.classList.remove("open"); overlay.classList.add("hidden"); } });
 }
 
 function saveProject() {
