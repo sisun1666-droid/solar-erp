@@ -1,5 +1,5 @@
 import { getState, on } from "../store/index.js";
-import { esc, today, $ } from "../utils/index.js";
+import { esc, today, toast, $ } from "../utils/index.js";
 import { openTodoModal } from "./todos.js";
 import { openConstructionById } from "./construction.js";
 import { openInspectionById } from "./inspection.js";
@@ -94,6 +94,34 @@ function buildShareText(d) {
   return lines.join("\n");
 }
 
+function buildSheetsRows(d) {
+  return [
+    ...d.completedTodos.map(t => ({ title: t.title, type: "할일", project: t.project || "", status: t.status, priority: t.priority, result: t.detail || "" })),
+    ...d.completedCons.map(c => ({ title: c.site, type: "시공", project: c.site || "", status: c.status, priority: "", result: c.next || "" })),
+    ...d.completedInsp.map(i => ({ title: i.plantName, type: "구조물검수", project: i.plantName || "", status: i.phase, priority: "", result: i.address || "" })),
+  ];
+}
+
+async function saveToSheets() {
+  const st = getState();
+  const url = st.sheetsWebAppUrl;
+  if (!url) { toast("관리자 설정에서 Google Sheets 웹 앱 URL을 먼저 등록해주세요."); return; }
+  if (_owner === "전체" || !_data) { toast("담당자를 먼저 선택해주세요."); return; }
+
+  const payload = { action: "save", date: _date, person: _owner, rows: buildSheetsRows(_data) };
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      body: new URLSearchParams({ payload: JSON.stringify(payload) }),
+    });
+    const body = await res.json();
+    if (body.ok) toast("구글 시트에 저장했습니다.");
+    else toast("저장 실패: " + (body.error || "알 수 없는 오류"));
+  } catch {
+    toast("구글 시트 저장에 실패했습니다.");
+  }
+}
+
 function render() {
   const panel = $("journalView");
   if (!panel) return;
@@ -139,6 +167,7 @@ function render() {
       </div>
       <select class="field" id="journalOwner" style="max-width:140px">${ownerOpts}</select>
       <button class="btn" id="journalShareBtn">카톡/복사 공유</button>
+      <button class="btn" id="journalSheetsBtn">구글 시트 저장</button>
     </div>
     <div class="card" style="margin-bottom:14px">
       <div class="panel-title"><h2>완료한 업무 (${completedCards.length})</h2></div>
@@ -171,7 +200,8 @@ function onDocClick(e) {
     if (btn.id === "journalPrevBtn")  return shiftDate(-1);
     if (btn.id === "journalNextBtn")  return shiftDate(1);
     if (btn.id === "journalTodayBtn") { _date = today(); return render(); }
-    if (btn.id === "journalShareBtn") return _data && openKakaoShare(buildShareText(_data));
+    if (btn.id === "journalShareBtn")  return _data && openKakaoShare(buildShareText(_data));
+    if (btn.id === "journalSheetsBtn") return saveToSheets();
     return;
   }
 

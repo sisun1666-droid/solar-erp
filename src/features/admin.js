@@ -17,6 +17,7 @@ export const DEFAULTS = {
   people:             [{ name:"이재강", role:"과장", area:"", monthlyTarget:30, yearlyTarget:360 }],
   gcalClientId:       "",
   gcalCalendarId:     "primary",
+  sheetsWebAppUrl:    "",
 };
 
 // 브랜드/제목을 헤더·탭 제목에 반영 (원격 기기의 admin 수정도 stateChange로 실시간 반영)
@@ -115,6 +116,25 @@ function gcalCard() {
     </div>`;
 }
 
+// ── Google Sheets 업무일지 연동 카드 ──────────────────────────────────────────
+function sheetsCard() {
+  const st = getState();
+  return `
+    <div class="card">
+      <div class="panel-title"><h2>📊 Google Sheets 업무일지 연동</h2></div>
+      <p class="meta" style="margin:0 0 12px">업무일지 화면의 "구글 시트 저장" 버튼이 이 주소로 데이터를 전송합니다.</p>
+      <div class="form-grid">
+        <div class="form-row full">
+          <label>Apps Script 웹 앱 URL</label>
+          <input class="field" id="sheetsUrlInput" value="${esc(st.sheetsWebAppUrl||"")}" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn primary" id="sheetsSaveBtn">저장</button>
+      </div>
+    </div>`;
+}
+
 // ── 메인 렌더 ────────────────────────────────────────────────────────────────
 function render() {
   const panel = document.getElementById("adminView");
@@ -137,6 +157,7 @@ function render() {
     <div class="admin-grid">
       ${peopleCard()}
       ${gcalCard()}
+      ${sheetsCard()}
       ${card("현장 업무단계", "phases", "새 단계", "단계 추가")}
       ${card("현장 상태", "statuses", "새 상태", "상태 추가")}
       ${card("일정/업무 상태", "assignmentStatuses", "새 상태", "상태 추가")}
@@ -180,6 +201,12 @@ function bindEvents(panel) {
   });
   panel.querySelector("#gcalConnectBtn")?.addEventListener("click", () => requestToken(true).then(() => render()));
   panel.querySelector("#gcalDisconnectBtn")?.addEventListener("click", () => { clearToken(); render(); });
+
+  // Google Sheets 업무일지 연동
+  panel.querySelector("#sheetsSaveBtn")?.addEventListener("click", () => {
+    setState({ sheetsWebAppUrl: document.getElementById("sheetsUrlInput")?.value.trim() || "" });
+    toast("저장했습니다.");
+  });
 
   // 동적 목록 이벤트 위임 (input 변경)
   panel.addEventListener("input", e => {
