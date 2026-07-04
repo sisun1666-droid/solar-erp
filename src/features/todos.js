@@ -1,5 +1,5 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast, $, onSearchInput } from "../utils/index.js";
+import { genId, today, nowStamp, esc, toast, $, onSearchInput } from "../utils/index.js";
 import { isConnected as gcalConnected, createEvent as gcalCreate, updateEvent as gcalUpdate, deleteEvent as gcalDelete } from "./gcal.js";
 import { goTo } from "../router.js";
 
@@ -27,7 +27,7 @@ function normTodo(t) {
   return t;
 }
 function stampCompletion(t, oldStatus) {
-  if (t.status === "완료" && oldStatus !== "완료") t.completedAt = today();
+  if (t.status === "완료" && oldStatus !== "완료") t.completedAt = nowStamp();
   else if (t.status !== "완료") t.completedAt = null;
   return t;
 }

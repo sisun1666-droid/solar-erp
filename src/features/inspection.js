@@ -1,8 +1,15 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast, $ } from "../utils/index.js";
+import { genId, today, nowStamp, esc, toast, $ } from "../utils/index.js";
 
 let _editing = null;
 const PHASES = ["검수중", "보완필요", "합격", "재검수"];
+
+// 업무일지에서 완료(합격) 시점을 잡아낼 수 있도록, 단계가 "합격"으로 바뀐 시각을 기록한다.
+function stampCompletion(item, oldPhase) {
+  if (item.phase === "합격" && oldPhase !== "합격") item.completedAt = nowStamp();
+  else if (item.phase !== "합격") item.completedAt = null;
+  return item;
+}
 
 function renderInspection() {
   const el = $("inspectionView");
@@ -75,9 +82,12 @@ function saveInspectionModal() {
   };
   if (_editing !== null) {
     item.id = items[_editing].id;
+    item.completedAt = items[_editing].completedAt ?? null;
+    stampCompletion(item, items[_editing].phase);
     items[_editing] = item;
   } else {
     item.id = genId("insp");
+    stampCompletion(item, null);
     items.unshift(item);
   }
   setState({ structureInspections: items });

@@ -1,5 +1,5 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
-import { genId, today, esc, toast, $, onSearchInput } from "../utils/index.js";
+import { genId, today, nowStamp, esc, toast, $, onSearchInput } from "../utils/index.js";
 
 let _editing = null;
 let _search  = "";
@@ -31,6 +31,12 @@ function normConstruction(c) {
   if (!c.status) c.status = "예정";
   if (!c.phase) c.phase = "착공";
   if (!c.kw) c.kw = 0;
+  return c;
+}
+// 업무일지에서 완료 시점을 잡아낼 수 있도록, 상태가 "완료"로 바뀐 시각을 기록한다.
+function stampCompletion(c, oldStatus) {
+  if (c.status === "완료" && oldStatus !== "완료") c.completedAt = nowStamp();
+  else if (c.status !== "완료") c.completedAt = null;
   return c;
 }
 
@@ -302,8 +308,11 @@ function saveModal() {
   });
   if (_editing !== null) {
     c.id = construction[_editing].id;
+    c.completedAt = construction[_editing].completedAt ?? null;
+    stampCompletion(c, construction[_editing].status);
     construction[_editing] = c;
   } else {
+    stampCompletion(c, null);
     construction.unshift(c);
   }
   setState({ construction });

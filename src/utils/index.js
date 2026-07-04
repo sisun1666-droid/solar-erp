@@ -3,6 +3,8 @@ export const esc = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;
 
 // 날짜
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+// 완료 시각 기록용 - "YYYY-MM-DDTHH:MM" (분까지, 로컬 시각)
+export const nowStamp = () => { const d = new Date(); return `${today()}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
 export const localDate = d => new Date(d + "T00:00:00+09:00").toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit", weekday: "short" });
 
 // ID 생성
