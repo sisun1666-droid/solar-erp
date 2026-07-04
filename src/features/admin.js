@@ -1,6 +1,7 @@
 import { getState, setState, on } from "../store/index.js";
 import { esc, genId, toast } from "../utils/index.js";
 import { isConnected, requestToken, clearToken } from "./gcal.js";
+import { isConnected as kakaoConnected, startKakaoLogin, disconnectKakao } from "./kakao.js";
 
 // ── 기본값 ───────────────────────────────────────────────────────────────────
 export const DEFAULTS = {
@@ -116,6 +117,25 @@ function gcalCard() {
     </div>`;
 }
 
+// ── 카카오 알림 연동 카드 ─────────────────────────────────────────────────────
+function kakaoCard() {
+  const connected = kakaoConnected();
+  return `
+    <div class="card">
+      <div class="panel-title"><h2>💬 카카오 알림</h2></div>
+      <p class="meta" style="margin:0 0 12px">시공 시작일 하루 전, 시작 예정 현장을 본인 카카오톡("나에게 보내기")으로 요약해서 보냅니다.</p>
+      <div class="toolbar">
+        ${connected
+          ? `<button class="btn danger" id="kakaoDisconnectBtn">연결 해제</button>`
+          : `<button class="btn" id="kakaoConnectBtn">카카오 연결</button>`}
+      </div>
+      <div class="meta" style="margin-top:8px">상태: ${connected
+        ? `<strong style="color:#16a34a">✅ 연결됨</strong>`
+        : `<span style="color:#94a3b8">미연결</span>`}
+      </div>
+    </div>`;
+}
+
 // ── Google Sheets 업무일지 연동 카드 ──────────────────────────────────────────
 function sheetsCard() {
   const st = getState();
@@ -157,6 +177,7 @@ function render() {
     <div class="admin-grid">
       ${peopleCard()}
       ${gcalCard()}
+      ${kakaoCard()}
       ${sheetsCard()}
       ${card("현장 업무단계", "phases", "새 단계", "단계 추가")}
       ${card("현장 상태", "statuses", "새 상태", "상태 추가")}
@@ -201,6 +222,10 @@ function bindEvents(panel) {
   });
   panel.querySelector("#gcalConnectBtn")?.addEventListener("click", () => requestToken(true).then(() => render()));
   panel.querySelector("#gcalDisconnectBtn")?.addEventListener("click", () => { clearToken(); render(); });
+
+  // 카카오 알림
+  panel.querySelector("#kakaoConnectBtn")?.addEventListener("click", startKakaoLogin);
+  panel.querySelector("#kakaoDisconnectBtn")?.addEventListener("click", () => { disconnectKakao(); render(); });
 
   // Google Sheets 업무일지 연동
   panel.querySelector("#sheetsSaveBtn")?.addEventListener("click", () => {

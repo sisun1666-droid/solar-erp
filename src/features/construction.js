@@ -45,7 +45,7 @@ function defaultItem() {
   return {
     company: st.constructionTeams?.[0] || "",
     structureTeam: st.structureTeams?.[0] || "",
-    site: "", address: "", kw: 0, sales: "", customer: "",
+    projectId: "", site: "", address: "", kw: 0, sales: "", customer: "",
     phase: st.constructionPhases?.[0] || "착공",
     owner: "", start: today(), end: "", status: "예정", next: "",
   };
@@ -226,8 +226,15 @@ function openModal(idx = null) {
   const statusList = ["예정","시공중","완료","지연","보류"];
   const statusOpts = statusList.map(s =>
     `<option${s === c.status ? " selected" : ""}>${esc(s)}</option>`).join("");
+  const projectOpts = [`<option value="">-- 직접 입력 --</option>`]
+    .concat((st.projects || []).map(p =>
+      `<option value="${esc(p.id)}"${p.id === c.projectId ? " selected" : ""}>${esc(p.name)}</option>`)).join("");
 
   document.getElementById("constructionFormGrid").innerHTML = `
+    <div class="form-row full">
+      <label>연결된 현장 (프로젝트DB)</label>
+      <select class="field" id="conProjectId">${projectOpts}</select>
+    </div>
     <div class="form-row">
       <label>시공사</label>
       <select class="field" id="conCompany">${teamOpts}</select>
@@ -287,6 +294,17 @@ function openModal(idx = null) {
     if (next) next.value = withStatusLine(next.value, e.target.value);
   });
 
+  // 프로젝트DB 현장을 고르면 중복 입력 없이 site/address/customer/owner를 채워온다.
+  document.getElementById("conProjectId")?.addEventListener("change", e => {
+    const p = st.projects?.find(x => x.id === e.target.value);
+    if (!p) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set("conSite", p.name || "");
+    set("conAddress", p.address || "");
+    set("conCustomer", p.bizOwner || "");
+    if (!document.getElementById("conOwner")?.value) set("conOwner", p.owner || "");
+  });
+
   document.getElementById("deleteConstructionBtn")?.classList.toggle("hidden", idx === null);
   const m = document.getElementById("constructionModal");
   m?.classList.remove("hidden");
@@ -299,6 +317,7 @@ function saveModal() {
   const c = normConstruction({
     company:       document.getElementById("conCompany")?.value || "",
     structureTeam: document.getElementById("conStructureTeam")?.value || "",
+    projectId:     document.getElementById("conProjectId")?.value || "",
     site:          document.getElementById("conSite")?.value || "",
     kw:            Number(document.getElementById("conKw")?.value) || 0,
     sales:         document.getElementById("conSales")?.value || "",
