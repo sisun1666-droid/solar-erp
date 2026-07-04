@@ -1,5 +1,6 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
 import { genId, today, nowStamp, esc, toast, $, onSearchInput } from "../utils/index.js";
+import { permitsReady } from "./projects.js";
 
 let _editing = null;
 let _search  = "";
@@ -116,7 +117,21 @@ function renderTable(panel) {
 
   const wrap = panel.querySelector("#conResultsWrap");
   if (!wrap) return;
+  const linkedIds = new Set(list.map(c => c.projectId).filter(Boolean));
+  const candidates = (st.projects || []).filter(p => permitsReady(p) && !linkedIds.has(p.id));
+
   wrap.innerHTML = `
+    ${candidates.length ? `
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-title"><h2 class="label">시공 등록 대기 (허가 완료)</h2></div>
+        <div class="stack">
+          ${candidates.map(p => `<div class="card">
+            <div class="card-top"><span class="name">${esc(p.name)}</span></div>
+            <div class="meta">${esc(p.bizOwner||"")} · ${esc(p.address||"")}</div>
+            <button class="btn primary" data-con-new-from-project="${esc(p.id)}" style="margin-top:8px">시공일정 추가</button>
+          </div>`).join("")}
+        </div>
+      </div>` : ""}
     <div class="table-wrap">
       <table>
         <thead>
@@ -203,6 +218,14 @@ function withStatusLine(text, status) {
 export function openConstructionById(id) {
   const idx = (getState().construction || []).findIndex(c => c.id === id);
   if (idx >= 0) openModal(idx);
+}
+
+// "시공 등록 대기" 카드에서 바로 호출 — 새 항목을 열고 프로젝트를 선택한 상태로 시작해서
+// site/address/customer/owner 자동 채움을 그대로 재사용한다.
+export function openConstructionForProject(projectId) {
+  openModal(null);
+  const sel = document.getElementById("conProjectId");
+  if (sel) { sel.value = projectId; sel.dispatchEvent(new Event("change")); }
 }
 
 function openModal(idx = null) {
@@ -374,6 +397,7 @@ function onDocClick(e) {
 
   if (t.id === "conAddBtn")           { openModal(); return; }
   if (t.dataset.conEdit !== undefined){ openModal(Number(t.dataset.conEdit)); return; }
+  if (t.dataset.conNewFromProject)    { openConstructionForProject(t.dataset.conNewFromProject); return; }
   if (t.id === "saveConstructionBtn") { saveModal(); return; }
   if (t.id === "deleteConstructionBtn"){ deleteItem(); return; }
   if (t.dataset.conSort) {

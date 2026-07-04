@@ -219,13 +219,25 @@ const PROJECT_FIELDS = [
   { key: "due",      label: "마감일" },
   { key: "status",   label: "상태" },
   { key: "next",     label: "다음 액션" },
+  { key: "permitPower",        label: "발전사업허가 완료" },
+  { key: "permitDev",          label: "개발행위 완료" },
+  { key: "permitPpa",          label: "PPA 완료" },
+  { key: "permitFee",          label: "시설부담금 납부일" },
+  { key: "permitConstruction", label: "공사계획필증 허가일" },
 ];
+
+// 시공 착수에 필요한 5개 허가/납부 항목이 전부 채워졌는지 (값이 있으면 완료로 간주)
+export function permitsReady(p) {
+  return !!(p.permitPower && p.permitDev && p.permitPpa && p.permitFee && p.permitConstruction);
+}
 
 function guessColumn(headers, key) {
   const hints = {
     name: ["현장", "고객", "발전소", "이름"], phase: ["단계", "phase"],
     owner: ["담당"], bizOwner: ["사업주"], address: ["주소", "지번"],
     due: ["마감", "일자", "날짜"], status: ["상태"], next: ["액션", "메모", "비고"],
+    permitPower: ["발전_완료"], permitDev: ["개발_완료"], permitPpa: ["PPA_완료"],
+    permitFee: ["불입금납부일"], permitConstruction: ["공사계획_허가일"],
   };
   const idx = headers.findIndex(h => hints[key]?.some(k => h.includes(k)));
   return idx;
