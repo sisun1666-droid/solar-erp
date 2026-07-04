@@ -118,45 +118,38 @@ function renderTable(panel) {
   if (!wrap) return;
   wrap.innerHTML = `
     <div class="table-wrap">
-      <table style="min-width:1600px">
+      <table>
         <thead>
           <tr>
-            <th style="width:120px">${sortHead("company","시공사")}</th>
-            <th style="width:120px">${sortHead("structureTeam","구조물팀")}</th>
-            <th style="width:160px">${sortHead("site","현장")}</th>
-            <th style="width:70px">${sortHead("kw","kW")}</th>
-            <th style="width:100px">${sortHead("sales","영업자")}</th>
-            <th style="width:120px">${sortHead("customer","고객")}</th>
-            <th style="width:130px">${sortHead("phase","업무단계")}</th>
-            <th style="width:100px">${sortHead("owner","담당")}</th>
-            <th style="width:110px">${sortHead("start","시작일")}</th>
-            <th style="width:110px">${sortHead("end","완료일")}</th>
-            <th style="width:70px">소요일</th>
-            <th style="width:90px">완료월</th>
-            <th style="width:110px">${sortHead("status","상태")}</th>
-            <th>다음 액션</th>
+            <th>${sortHead("site","현장")}</th>
+            <th>${sortHead("customer","고객")}</th>
+            <th>${sortHead("phase","업무단계")}</th>
+            <th>${sortHead("owner","담당")}</th>
+            <th>기간</th>
+            <th>${sortHead("status","상태")}</th>
             <th style="width:60px">관리</th>
           </tr>
         </thead>
         <tbody>
-          ${rows.map(c => `<tr>
-            <td>${esc(c.company)}</td>
-            <td>${esc(c.structureTeam||"")}</td>
-            <td><button class="cell-link" data-con-edit="${c._i}">${esc(c.site)}</button></td>
-            <td>${esc(c.kw)}</td>
-            <td>${esc(c.sales)}</td>
-            <td>${esc(c.customer)}</td>
+          ${rows.map(c => `<tr title="${esc(c.next)}">
+            <td>
+              <button class="cell-link" data-con-edit="${c._i}">${esc(c.site)}</button>
+              <div class="meta">${esc(c.company)} · ${esc(c.structureTeam||"")} · ${esc(c.kw)}kW</div>
+            </td>
+            <td>
+              ${esc(c.customer)}
+              <div class="meta">${esc(c.sales)}</div>
+            </td>
             <td>${esc(c.phase)}</td>
             <td>${esc(c.owner)}</td>
-            <td>${esc(c.start)}</td>
-            <td>${esc(c.end)}</td>
-            <td>${durationDays(c.start, c.end)}일</td>
-            <td>${esc(completionMonth(c.end))}</td>
+            <td>
+              ${esc(c.start)} ~ ${esc(c.end)}
+              <div class="meta">${durationDays(c.start, c.end)}일</div>
+            </td>
             <td>${statusBadge(c.status)}</td>
-            <td title="${esc(c.next)}">${esc((c.next||"").length>30?c.next.slice(0,30)+"…":c.next)}</td>
             <td><button class="btn icon" data-con-edit="${c._i}">수정</button></td>
           </tr>`).join("")}
-          ${rows.length === 0 ? `<tr><td colspan="15" style="text-align:center;padding:24px;color:var(--muted)">시공일정이 없습니다.</td></tr>` : ""}
+          ${rows.length === 0 ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">시공일정이 없습니다.</td></tr>` : ""}
         </tbody>
       </table>
     </div>
