@@ -408,6 +408,7 @@ async function saveTodo() {
     if (todoIdx < 0) { toast("할일을 찾을 수 없습니다. 다시 시도해주세요."); return; }
     t.id = todos[todoIdx].id;
     t.linkedAssignmentId = todos[todoIdx].linkedAssignmentId;
+    t.completedAt = todos[todoIdx].completedAt ?? null;
     stampCompletion(t, todos[todoIdx].status);
     todos[todoIdx] = t;
   } else {
