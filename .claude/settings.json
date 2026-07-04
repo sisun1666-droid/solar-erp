@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["C:/Users/sisun/solar-erp-v2/.claude/hooks/post-edit-build.js"],
+            "timeout": 60,
+            "statusMessage": "빌드로 검증 중..."
+          }
+        ]
+      }
+    ]
+  }
+}
