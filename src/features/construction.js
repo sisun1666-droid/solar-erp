@@ -224,9 +224,24 @@ export function openConstructionById(id) {
 // site/address/customer/owner 자동 채움을 그대로 재사용한다.
 export function openConstructionForProject(projectId) {
   openModal(null);
-  const sel = document.getElementById("conProjectId");
-  if (sel) { sel.value = projectId; sel.dispatchEvent(new Event("change")); }
+  const p = getState().projects?.find(x => x.id === projectId);
+  if (p) applyProjectAutofill(p);
 }
+
+// 프로젝트DB의 site/address/customer/sales/kw를 시공일정 입력칸에 채워온다.
+// 담당자(conOwner)는 프로젝트DB에 대응 항목이 없어 건드리지 않는다.
+function applyProjectAutofill(p) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  document.getElementById("conProjectId").value = p.id;
+  set("conProjectSearch", projectLabel(p));
+  set("conSite", p.name || "");
+  set("conAddress", p.address || "");
+  set("conCustomer", p.bizOwner || "");
+  set("conSales", p.owner || "");
+  if (p.kw) set("conKw", p.kw);
+}
+
+function projectLabel(p) { return p.name + (p.address ? " · " + p.address : ""); }
 
 function openModal(idx = null) {
   _editing = idx;
@@ -242,14 +257,18 @@ function openModal(idx = null) {
   const statusList = ["예정","시공중","완료","지연","보류"];
   const statusOpts = statusList.map(s =>
     `<option${s === c.status ? " selected" : ""}>${esc(s)}</option>`).join("");
-  const projectOpts = [`<option value="">-- 직접 입력 --</option>`]
-    .concat((st.projects || []).map(p =>
-      `<option value="${esc(p.id)}"${p.id === c.projectId ? " selected" : ""}>${esc(p.name)}</option>`)).join("");
+  const projects = st.projects || [];
+  const linkedProject = projects.find(p => p.id === c.projectId);
+  const projectDatalist = projects.map(p =>
+    `<option value="${esc(projectLabel(p))}">`).join("");
 
   document.getElementById("constructionFormGrid").innerHTML = `
     <div class="form-row full">
       <label>연결된 현장 (프로젝트DB)</label>
-      <select class="field" id="conProjectId">${projectOpts}</select>
+      <input class="field" id="conProjectSearch" list="conProjectDatalist" autocomplete="off"
+        placeholder="현장명 입력해서 검색 (직접 입력해도 됨)" value="${esc(linkedProject ? projectLabel(linkedProject) : "")}">
+      <datalist id="conProjectDatalist">${projectDatalist}</datalist>
+      <input type="hidden" id="conProjectId" value="${esc(c.projectId || "")}">
     </div>
     <div class="form-row">
       <label>시공사</label>
@@ -310,15 +329,12 @@ function openModal(idx = null) {
     if (next) next.value = withStatusLine(next.value, e.target.value);
   });
 
-  // 프로젝트DB 현장을 고르면 중복 입력 없이 site/address/customer/owner를 채워온다.
-  document.getElementById("conProjectId")?.addEventListener("change", e => {
-    const p = st.projects?.find(x => x.id === e.target.value);
-    if (!p) return;
-    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    set("conSite", p.name || "");
-    set("conAddress", p.address || "");
-    set("conCustomer", p.bizOwner || "");
-    if (!document.getElementById("conOwner")?.value) set("conOwner", p.owner || "");
+  // 프로젝트DB 현장을 검색해서 고르면 중복 입력 없이 site/address/customer/sales/kw를 채워온다.
+  document.getElementById("conProjectSearch")?.addEventListener("input", e => {
+    const text = e.target.value;
+    if (!text) { document.getElementById("conProjectId").value = ""; return; }
+    const p = projects.find(x => projectLabel(x) === text);
+    if (p) applyProjectAutofill(p);
   });
 
   document.getElementById("deleteConstructionBtn")?.classList.toggle("hidden", idx === null);

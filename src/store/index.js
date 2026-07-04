@@ -23,17 +23,22 @@ export function emit(event, payload) { (_listeners[event] ?? []).forEach(fn => f
 // ── 상태 읽기/쓰기 ───────────────────────────────────────────────────────
 export function getState()           { return _state; }
 
-export function setState(patch, { silent = false } = {}) {
+// skipSave: 서버에서 막 받아온 데이터를 반영할 때(syncFromServer)처럼, 저장이 아니라
+// "반영"만 하면 되는 경우 true로 넘긴다. 이게 없으면 동기화 직후마다 방금 받은 데이터를
+// 다시 서버로 재업로드 예약을 하게 되어, 대용량 테이블 저장과 겹칠 때 레이스가 생긴다.
+export function setState(patch, { silent = false, skipSave = false } = {}) {
   const prev = _state;
   _state = { ...prev, ...patch };
 
-  // 어떤 테이블이 변경됐는지 추적
-  TABLES.forEach(t => { if (patch[t] && patch[t] !== prev[t]) _pending[t] = true; });
-  // TABLES 밖의 필드(brand/adminPin/people 등 관리자 설정 전부)가 바뀌면 config 저장 대상
-  if (Object.keys(patch).some(k => !TABLES.includes(k))) _configDirty = true;
+  if (!skipSave) {
+    // 어떤 테이블이 변경됐는지 추적
+    TABLES.forEach(t => { if (patch[t] && patch[t] !== prev[t]) _pending[t] = true; });
+    // TABLES 밖의 필드(brand/adminPin/people 등 관리자 설정 전부)가 바뀌면 config 저장 대상
+    if (Object.keys(patch).some(k => !TABLES.includes(k))) _configDirty = true;
+    scheduleSave();
+  }
 
   if (!silent) emit("stateChange", { state: _state, patch });
-  scheduleSave();
 }
 
 // ── 로컬스토리지 (초기 로드용) ────────────────────────────────────────────
@@ -177,7 +182,7 @@ export async function syncFromServer() {
     }
 
     if (Object.keys(patch).length) {
-      setState(patch, { silent: true });
+      setState(patch, { silent: true, skipSave: true });
       saveLocal();
       emit("stateChange", { state: _state, patch });
     }

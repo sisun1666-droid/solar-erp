@@ -219,6 +219,7 @@ const PROJECT_FIELDS = [
   { key: "due",      label: "마감일" },
   { key: "status",   label: "상태" },
   { key: "next",     label: "다음 액션" },
+  { key: "kw",                 label: "발전용량(kW)" },
   { key: "permitPower",        label: "발전사업허가 완료" },
   { key: "permitDev",          label: "개발행위 완료" },
   { key: "permitPpa",          label: "PPA 완료" },
@@ -236,6 +237,7 @@ function guessColumn(headers, key) {
     name: ["현장", "고객", "발전소", "이름"], phase: ["단계", "phase"],
     owner: ["담당"], bizOwner: ["사업주"], address: ["주소", "지번"],
     due: ["마감", "일자", "날짜"], status: ["상태"], next: ["액션", "메모", "비고"],
+    kw: ["발전_허가용량"],
     permitPower: ["발전_완료"], permitDev: ["개발_완료"], permitPpa: ["PPA_완료"],
     permitFee: ["불입금납부일"], permitConstruction: ["공사계획_허가일"],
   };
