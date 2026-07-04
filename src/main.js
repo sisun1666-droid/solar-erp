@@ -17,6 +17,7 @@ import { initInspection } from "./features/inspection.js";
 import { initDashboard    } from "./features/dashboard.js";
 import { initKnowledge   } from "./features/knowledge.js";
 import { initAdmin      } from "./features/admin.js";
+import { initKakaoShare  } from "./features/kakaoShare.js";
 
 // 모달 닫기 공통 핸들러
 document.addEventListener("click", e => {
@@ -47,6 +48,7 @@ async function boot() {
   initDashboard();
   initKnowledge();
   initAdmin();
+  initKakaoShare();
   initShell();
   initRouter();
   initPwa();

@@ -43,6 +43,11 @@ function renderInspection() {
   );
 }
 
+export function openInspectionById(id) {
+  const idx = (getState().structureInspections || []).findIndex(i => i.id === id);
+  if (idx >= 0) openInspectionModal(idx);
+}
+
 function openInspectionModal(idx = null) {
   _editing = idx;
   const st = getState();

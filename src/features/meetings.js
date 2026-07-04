@@ -41,6 +41,11 @@ function renderMeetings() {
     </div>`;
 }
 
+export function openMeetingById(id) {
+  const idx = (getState().meetings || []).findIndex(m => m.id === id);
+  if (idx >= 0) openMeetingModal(idx);
+}
+
 function openMeetingModal(idx = null) {
   _editMeeting = idx;
   const st = getState();

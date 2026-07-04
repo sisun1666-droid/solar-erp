@@ -207,6 +207,11 @@ function withStatusLine(text, status) {
   return text?.trim() ? `${text.replace(/\s+$/, "")}\n${line}` : line;
 }
 
+export function openConstructionById(id) {
+  const idx = (getState().construction || []).findIndex(c => c.id === id);
+  if (idx >= 0) openModal(idx);
+}
+
 function openModal(idx = null) {
   _editing = idx;
   const st = getState();

@@ -2,6 +2,7 @@ import { getState, setState, markDeleted, on } from "../store/index.js";
 import { genId, today, nowStamp, esc, toast, $, onSearchInput } from "../utils/index.js";
 import { isConnected as gcalConnected, createEvent as gcalCreate, updateEvent as gcalUpdate, deleteEvent as gcalDelete } from "./gcal.js";
 import { goTo } from "../router.js";
+import { openKakaoShare } from "./kakaoShare.js";
 
 // ── 상태 ───────────────────────────────────────────────────────────────────
 let _editingTodo = null;       // null = 새 항목, number = 인덱스
@@ -387,6 +388,16 @@ function openTodoModal(id = null, defaultStatus = "할 일") {
   $("todoModal")?.classList.add("open");
 }
 
+function shareTodoKakao() {
+  const lines = [
+    `[할일] ${$("todoTitle")?.value || "제목 없는 할일"}`,
+    `담당: ${$("todoOwner")?.value || "미정"} · 마감: ${$("todoDue")?.value || ""}`,
+  ];
+  const detail = $("todoDetail")?.value || "";
+  if (detail) lines.push(detail);
+  openKakaoShare(lines.join("\n"));
+}
+
 async function saveTodo() {
   const st = getState();
   const todos = [...(st.todos || [])];
@@ -578,6 +589,7 @@ function onDocClick(e) {
   if (t.dataset.todoOwnerFilter)          { _ownerFilter  = t.dataset.todoOwnerFilter;  renderBoard(); return; }
   if (t.dataset.todoToggleCompleted)      { _completedExpanded = !_completedExpanded;   renderBoard(); return; }
   if (t.id === "saveTodoBtn")             return saveTodo();
+  if (t.id === "kakaoTodoBtn")            return shareTodoKakao();
   if (t.id === "deleteTodoBtn") {
     if (_editingTodo !== null && confirm("이 할일과 연결된 일정을 함께 삭제할까요?")) {
       deleteTodo(_editingTodo);
