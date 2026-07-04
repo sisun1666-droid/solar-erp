@@ -1,0 +1,16 @@
+name: 업무일지 구글시트 자동 동기화
+
+on:
+  schedule:
+    - cron: "0 14 * * *"   # 매일 23:00 KST (UTC 14:00)
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/sync-journal-to-sheets.mjs
