@@ -1,4 +1,4 @@
-import { getState, on } from "../store/index.js";
+import { getState, setState, on } from "../store/index.js";
 import { esc, today, kwDisplay, onSearchInput } from "../utils/index.js";
 import { openTodoModal } from "./todos.js";
 import { openAssignModal } from "./todos.js";
@@ -119,6 +119,25 @@ function pipelineFunnel() {
   </div>`;
 }
 
+// ── 팀별 워크로드 (진행중+예정 시공 건수로 현재 부하 확인) ──────────────────
+function workloadSection() {
+  const st = getState();
+  const con = st.construction || [];
+  const active = con.filter(c => c.status === "시공중" || c.status === "예정");
+  const teams = st.constructionTeams || [];
+  const strTeams = st.structureTeams || [];
+  const maxTeam = Math.max(1, ...teams.map(t => active.filter(c => c.company === t).length));
+  const maxStr  = Math.max(1, ...strTeams.map(t => active.filter(c => c.structureTeam === t).length));
+
+  return `
+    <div class="label">시공사</div>
+    ${teams.length ? teams.map(t => smallBar(t, active.filter(c => c.company === t).length, maxTeam)).join("")
+      : `<div class="meta">시공사 데이터가 없습니다.</div>`}
+    <div class="label" style="margin-top:10px">구조물팀</div>
+    ${strTeams.length ? strTeams.map(t => smallBar(t, active.filter(c => c.structureTeam === t).length, maxStr)).join("")
+      : `<div class="meta">구조물팀 데이터가 없습니다.</div>`}`;
+}
+
 // ── 지금 처리 필요 (지연 시공 + 마감 초과 할일 통합) ────────────────────────
 function priorityList() {
   const st = getState();
@@ -232,6 +251,16 @@ function ensureDashboardShell(panel) {
           <div class="dash-link-row" id="dashPillRow"></div>
           <div class="project-list" id="dashProjectList"></div>
         </section>
+
+        <section class="dash-section compact">
+          <div class="dash-title"><h2>⚖️ 팀별 워크로드</h2></div>
+          <div id="dashWorkload"></div>
+        </section>
+
+        <section class="dash-section compact">
+          <div class="dash-title"><h2>📌 팀 공지</h2></div>
+          <textarea class="dashboard-memo-box" id="dashTeamNotice" placeholder="팀 전체에 공유할 공지사항을 적어두세요 (자동 저장)"></textarea>
+        </section>
       </aside>
 
       <!-- 가운데: 파이프라인 + 우선순위 + KPI -->
@@ -284,6 +313,11 @@ function ensureDashboardShell(panel) {
     _projSearch = e.target.value;
     renderDashboardResults(panel);
   });
+
+  // 공지사항은 다른 직원도 같이 쓰는 공유 메모라, 키 입력마다 저장하지 않고
+  // 포커스를 벗어날 때만 저장한다 (동시 편집 시 서로 덮어쓰는 걸 최소화).
+  const noticeEl = panel.querySelector("#dashTeamNotice");
+  noticeEl?.addEventListener("change", () => setState({ teamNotice: noticeEl.value }));
 
   startClock();
   loadWeather();
@@ -342,6 +376,13 @@ function renderDashboardResults(panel) {
 
   const pipeline = panel.querySelector("#dashPipeline");
   if (pipeline) pipeline.innerHTML = pipelineFunnel();
+
+  const workload = panel.querySelector("#dashWorkload");
+  if (workload) workload.innerHTML = workloadSection();
+
+  // 다른 직원이 저장한 공지 내용을 반영하되, 지금 이 창에서 타이핑 중이면 덮어쓰지 않는다.
+  const noticeEl = panel.querySelector("#dashTeamNotice");
+  if (noticeEl && document.activeElement !== noticeEl) noticeEl.value = st.teamNotice || "";
 
   const attentionList = panel.querySelector("#dashAttentionList");
   if (attentionList) attentionList.innerHTML = priorityList();
