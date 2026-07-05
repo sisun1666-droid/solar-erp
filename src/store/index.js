@@ -85,6 +85,7 @@ let _saveTimer = null;
 let _svrIds    = {};         // 서버에 있는 ID 추적 (DELETE용)
 let _lastSig     = {};       // 테이블별 마지막 동기화 내용 서명 (변경 감지용)
 let _lastMetaSig = null;
+let _saving = false;         // true인 동안은 syncFromServer가 건너뜀 (저장 중 로컬 값이 서버의 예전 값으로 덮어써지는 것 방지)
 
 function scheduleSave() {
   if (_saveTimer) clearTimeout(_saveTimer);
@@ -96,6 +97,7 @@ async function flushSave() {
   const tables = Object.keys(_pending);
   if (!tables.length && !_configDirty && !_tombsDirty) return;
   _pending = {};
+  _saving = true;
   emit("saveStart");
 
   saveLocal();
@@ -128,11 +130,13 @@ async function flushSave() {
     await config.set("tombstones", _tombs).catch(() => {});
   }
 
+  _saving = false;
   emit("saveComplete");
 }
 
 // ── Supabase에서 최신 데이터 로드 ────────────────────────────────────────
 export async function syncFromServer() {
+  if (_saving) return; // 저장이 아직 서버에 반영 안 됐는데 동기화가 그 사이의 예전 값으로 로컬을 덮어쓰는 것 방지
   try {
     const [tables, meta, serverTombs] = await Promise.all([
       loadAllTables(),
