@@ -249,12 +249,20 @@ export function openConstructionForProject(projectId) {
 
 function projectLabel(p) { return p.name + (p.address ? " · " + p.address : ""); }
 
+function linkedProjects() {
+  const projects = getState().projects || [];
+  return _modalProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
+}
+
+function linkedProjectsKwSum(linked) {
+  return Math.round(linked.reduce((s, p) => s + (Number(p.kw) || 0), 0) * 100) / 100;
+}
+
 // 새터1호/새터2호처럼 도면상 한 부지를 호기별로 나눠 등록한 현장들을 여러 개 연결하면,
 // site/address/customer/sales는 첫 현장 기준으로 채우고 kW만 전부 합산한다 —
 // 실제로 호기마다 주소·사업주는 같고 발전용량만 나뉘어 기재되는 경우가 대부분이라서.
 function applyLinkedProjectsAutofill() {
-  const projects = getState().projects || [];
-  const linked = _modalProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
+  const linked = linkedProjects();
   if (!linked.length) return;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   const first = linked[0];
@@ -262,15 +270,14 @@ function applyLinkedProjectsAutofill() {
   set("conAddress", first.address || "");
   set("conCustomer", first.bizOwner || "");
   set("conSales", first.owner || "");
-  const kwSum = Math.round(linked.reduce((s, p) => s + (Number(p.kw) || 0), 0) * 100) / 100;
+  const kwSum = linkedProjectsKwSum(linked);
   if (kwSum) set("conKw", kwSum);
 }
 
 function renderProjectChips() {
   const wrap = document.getElementById("conProjectChips");
   if (!wrap) return;
-  const projects = getState().projects || [];
-  const linked = _modalProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
+  const linked = linkedProjects();
   wrap.innerHTML = linked.map(p => `
     <span class="stats-legend-item" style="background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px">
       ${esc(p.name)}
@@ -297,13 +304,8 @@ function removeProjectLink(id) {
   _modalProjectIds = _modalProjectIds.filter(x => x !== id);
   renderProjectChips();
   refreshProjectDatalist();
-  const projects = getState().projects || [];
-  const kwSum = Math.round(_modalProjectIds
-    .map(pid => projects.find(p => p.id === pid))
-    .filter(Boolean)
-    .reduce((s, p) => s + (Number(p.kw) || 0), 0) * 100) / 100;
   const kwEl = document.getElementById("conKw");
-  if (kwEl) kwEl.value = kwSum;
+  if (kwEl) kwEl.value = linkedProjectsKwSum(linkedProjects());
 }
 
 function openModal(idx = null) {

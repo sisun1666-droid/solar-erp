@@ -85,14 +85,15 @@ let _saveTimer = null;
 let _svrIds    = {};         // 서버에 있는 ID 추적 (DELETE용)
 let _lastSig     = {};       // 테이블별 마지막 동기화 내용 서명 (변경 감지용)
 let _lastMetaSig = null;
-// true인 동안은 syncFromServer가 건너뜀. 로컬 수정이 예약된 순간(debounce 대기 중)부터
-// 서버 업로드가 끝날 때까지 전체 구간을 덮어야 한다 — 저장이 시작되기 전(디바운스 대기 중)에
-// 동기화가 끼어들면, 아직 서버에 없는 로컬 수정을 서버의 예전 값으로 메모리에서부터
-// 덮어써버려서 그 다음 디바운스 저장이 그 오염된 값을 그대로 재업로드하게 된다.
-let _saving = false;
+// syncFromServer는 _saveTimer(디바운스 대기 중)나 _flushing(업로드 진행 중) 둘 중 하나라도
+// 참이면 건너뛴다. _saving을 단일 bool로 두면, 업로드 도중 새 수정이 들어와 다음 타이머가
+// 잡혀도 "먼저 시작한" flushSave가 끝나는 순간 그 사실을 모른 채 false로 되돌려버려서,
+// 새로 예약된 저장이 실제로 서버에 반영되기 전 틈에 동기화가 끼어들 수 있었다.
+// _saveTimer(예약 여부)는 scheduleSave가, _flushing(업로드 여부)은 flushSave 자신이 관리하므로
+// 이 둘을 OR로 보면 "로컬 수정이 예약된 순간부터 업로드가 끝날 때까지" 구간을 빈틈없이 덮는다.
+let _flushing = false;
 
 function scheduleSave() {
-  _saving = true;
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(flushSave, 800);
 }
@@ -100,47 +101,50 @@ function scheduleSave() {
 async function flushSave() {
   _saveTimer = null;
   const tables = Object.keys(_pending);
-  if (!tables.length && !_configDirty && !_tombsDirty) { _saving = false; return; }
+  if (!tables.length && !_configDirty && !_tombsDirty) return;
   _pending = {};
+  _flushing = true;
   emit("saveStart");
 
-  saveLocal();
+  try {
+    saveLocal();
 
-  if (tables.length) {
-    for (const table of tables) {
-      const items     = _state[table] ?? [];
-      const currentIds = new Set(items.map(x => x.id).filter(Boolean));
-      const prevIds    = _svrIds[table] ?? new Set();
-      const deletedIds = [...prevIds].filter(id => !currentIds.has(id) && wasDeleted(table, id));
+    if (tables.length) {
+      for (const table of tables) {
+        const items     = _state[table] ?? [];
+        const currentIds = new Set(items.map(x => x.id).filter(Boolean));
+        const prevIds    = _svrIds[table] ?? new Set();
+        const deletedIds = [...prevIds].filter(id => !currentIds.has(id) && wasDeleted(table, id));
 
-      try {
-        await saveTable(table, items, deletedIds);
-        _svrIds[table] = currentIds;
-      } catch (e) {
-        console.warn(`[store] save failed for ${table}:`, e);
+        try {
+          await saveTable(table, items, deletedIds);
+          _svrIds[table] = currentIds;
+        } catch (e) {
+          console.warn(`[store] save failed for ${table}:`, e);
+        }
       }
     }
-  }
 
-  if (_configDirty) {
-    _configDirty = false;
-    // TABLES 밖의 필드 전부(관리자 설정, gcal, 세션 등) — 필드가 늘어나도 자동으로 동기화됨
-    const configPatch = Object.fromEntries(Object.entries(_state).filter(([k]) => !TABLES.includes(k)));
-    await config.set("shared", configPatch).catch(() => {});
-  }
+    if (_configDirty) {
+      _configDirty = false;
+      // TABLES 밖의 필드 전부(관리자 설정, gcal, 세션 등) — 필드가 늘어나도 자동으로 동기화됨
+      const configPatch = Object.fromEntries(Object.entries(_state).filter(([k]) => !TABLES.includes(k)));
+      await config.set("shared", configPatch).catch(() => {});
+    }
 
-  if (_tombsDirty) {
-    _tombsDirty = false;
-    await config.set("tombstones", _tombs).catch(() => {});
+    if (_tombsDirty) {
+      _tombsDirty = false;
+      await config.set("tombstones", _tombs).catch(() => {});
+    }
+  } finally {
+    _flushing = false;
   }
-
-  _saving = false;
   emit("saveComplete");
 }
 
 // ── Supabase에서 최신 데이터 로드 ────────────────────────────────────────
 export async function syncFromServer() {
-  if (_saving) return; // 저장이 아직 서버에 반영 안 됐는데 동기화가 그 사이의 예전 값으로 로컬을 덮어쓰는 것 방지
+  if (_saveTimer || _flushing) return; // 저장이 아직 서버에 반영 안 됐는데 동기화가 그 사이의 예전 값으로 로컬을 덮어쓰는 것 방지
   try {
     const [tables, meta, serverTombs] = await Promise.all([
       loadAllTables(),

@@ -17,6 +17,7 @@ export const DEFAULTS = {
   constructionTeams:  ["남해","다온","다호","동광","금태양","JW","보강"],
   structureTeams:     ["보틸","쇼후르","잠시드","일고르","아와즈벡","마흐무드","살도르벡"],
   people:             [{ name:"이재강", role:"과장", area:"", monthlyTarget:30, yearlyTarget:360 }],
+  msgCategories:      DEFAULT_MSG_CATS,
   gcalClientId:       "",
   gcalCalendarId:     "primary",
   sheetsWebAppUrl:    "",
@@ -38,7 +39,7 @@ export function applyBranding() {
 export function normalizeState() {
   const st = getState();
   const patch = {};
-  const keys = ["phases","statuses","assignmentStatuses","constructionPhases","constructionTeams","structureTeams","people"];
+  const keys = ["phases","statuses","assignmentStatuses","constructionPhases","constructionTeams","structureTeams","people","msgCategories"];
   keys.forEach(k => { if (!st[k]?.length) patch[k] = DEFAULTS[k]; });
   if (!st.brand)    patch.brand    = DEFAULTS.brand;
   if (!st.title)    patch.title    = DEFAULTS.title;
@@ -159,7 +160,7 @@ function sheetsCard() {
 // ── 메시지 자동응답 카테고리 카드 ─────────────────────────────────────────────
 function msgCatsCard() {
   const st = getState();
-  const cats = st.msgCategories?.length ? st.msgCategories : DEFAULT_MSG_CATS;
+  const cats = st.msgCategories || [];
   const badgeOpts = ["red","amber","blue","green"];
   return `
     <div class="card" style="grid-column:1/-1">
@@ -224,7 +225,7 @@ function render() {
 // 아직 한 번도 손대지 않았으면(state에 없으면) 기본값을 복제해서 편집을 시작한다.
 function currentMsgCats() {
   const st = getState();
-  return (st.msgCategories?.length ? st.msgCategories : DEFAULT_MSG_CATS).map(c => ({ ...c, keys: [...(c.keys || [])] }));
+  return (st.msgCategories || []).map(c => ({ ...c, keys: [...(c.keys || [])] }));
 }
 
 // ── 이벤트 바인딩 ─────────────────────────────────────────────────────────────

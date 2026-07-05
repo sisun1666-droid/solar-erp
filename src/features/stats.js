@@ -40,9 +40,14 @@ function completionKey(c) {
   return raw.slice(0, 7);
 }
 
-// 팀이 8개를 넘기면 이번 구간 물량 기준 상위 7개 + "기타"로 접는다.
+// 설정된 팀 이름과 안 맞는 company(공백, 오타, 삭제된 팀 등)가 하나라도 있으면
+// "기타" 묶음을 만든다 — 팀 수가 8개 이하라서 안 만들면, teamOf()가 그 기록들을
+// "기타"로 분류해놓고도 series에는 "기타" 행이 없어 합계에서 조용히 빠지게 된다.
 function pickTeams(configuredTeams, done) {
-  if (configuredTeams.length <= MAX_SERIES) return configuredTeams;
+  const hasOther = done.some(c => !configuredTeams.includes(c.company));
+  if (configuredTeams.length + (hasOther ? 1 : 0) <= MAX_SERIES) {
+    return hasOther ? [...configuredTeams, "기타"] : configuredTeams;
+  }
   const volume = t => done.filter(c => c.company === t).length;
   const top = [...configuredTeams].sort((a, b) => volume(b) - volume(a)).slice(0, MAX_SERIES - 1);
   return [...top, "기타"];

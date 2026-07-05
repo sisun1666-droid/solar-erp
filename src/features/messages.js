@@ -15,8 +15,7 @@ export const DEFAULT_MSG_CATS = [
 ];
 
 function msgCategories() {
-  const cats = getState().msgCategories;
-  return cats?.length ? cats : DEFAULT_MSG_CATS;
+  return getState().msgCategories || [];
 }
 
 function analyzeMsg(text) {
