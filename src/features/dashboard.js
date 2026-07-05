@@ -2,7 +2,8 @@ import { getState, on } from "../store/index.js";
 import { esc, today, kwDisplay, onSearchInput } from "../utils/index.js";
 import { openTodoModal } from "./todos.js";
 import { openAssignModal } from "./todos.js";
-import { openConstructionModal } from "./construction.js";
+import { openConstructionModal, linkedProjectIdsOf } from "./construction.js";
+import { permitsReady } from "./projects.js";
 
 let _calYear  = new Date().getFullYear();
 let _calMonth = new Date().getMonth() + 1;
@@ -71,20 +72,15 @@ function smallBar(label, val, total, color = "#0d9488") {
 }
 
 function kpiSection(rows, allRows = rows) {
-  const st = getState();
   const total = rows.length;
   const done  = rows.filter(c => c.status === "완료").length;
   const active = rows.filter(c => c.status === "시공중").length;
   const late  = rows.filter(c => c.status === "지연").length;
   const kw    = Math.round(rows.reduce((s, c) => s + (Number(c.kw) || 0), 0) * 100) / 100;
   const totalKw = Math.round(allRows.reduce((s, c) => s + (Number(c.kw) || 0), 0) * 100) / 100;
-  const phases = st.constructionPhases || [];
-  const teams  = st.constructionTeams  || [];
-  const maxPhase = Math.max(1, ...phases.map(p => rows.filter(c => c.phase === p).length));
-  const maxTeam  = Math.max(1, ...teams.map(t => rows.filter(c => c.company === t).length));
   const rate = total ? Math.round(done / total * 100) : 0;
 
-  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+  return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
     <div class="dash-section compact">
       <div class="label">시공 진행률</div>
       <div class="donut" style="--p:${rate}%"><span>${rate}%</span></div>
@@ -97,16 +93,58 @@ function kpiSection(rows, allRows = rows) {
       ${smallBar("지연", late, total, "#d87568")}
     </div>
     <div class="dash-section compact">
-      <div class="label">업무단계 분포</div>
-      ${phases.slice(0,4).map(p => smallBar(p, rows.filter(c => c.phase === p).length, maxPhase)).join("")}
-    </div>
-    <div class="dash-section compact">
       <div class="label">월간 시공 물량</div>
       <div class="value" style="font-size:22px">${kwDisplay(kw)}</div>
       <div class="meta">누적 ${kwDisplay(totalKw)}</div>
-      ${teams.slice(0,3).map(t => smallBar(t, rows.filter(c => c.company === t).length, maxTeam)).join("")}
+      <button class="btn" data-nav="stats" style="margin-top:8px;width:100%;white-space:nowrap;padding:0 6px">통계 →</button>
     </div>
   </div>`;
+}
+
+// ── 파이프라인 퍼널 (프로젝트DB 업무단계별 현황) ────────────────────────────
+function pipelineFunnel() {
+  const st = getState();
+  const projects = st.projects || [];
+  const phases = st.phases || [];
+  const linkedIds = new Set((st.construction || []).flatMap(linkedProjectIdsOf));
+  const readyCount = projects.filter(p => permitsReady(p) && !linkedIds.has(p.id)).length;
+  const maxPhase = Math.max(1, ...phases.map(ph => projects.filter(p => p.phase === ph).length));
+
+  return `<div class="dash-section compact">
+    <div class="dash-title"><h2>🧭 프로젝트 파이프라인</h2><span class="meta">전체 ${projects.length}건</span></div>
+    ${phases.map(ph => smallBar(ph, projects.filter(p => p.phase === ph).length, maxPhase)).join("")}
+    <button class="btn primary" data-nav="construction" style="margin-top:10px;width:100%">
+      ${readyCount ? `시공 등록 대기 ${readyCount}건 →` : "시공일정으로 이동 →"}
+    </button>
+  </div>`;
+}
+
+// ── 지금 처리 필요 (지연 시공 + 마감 초과 할일 통합) ────────────────────────
+function priorityList() {
+  const st = getState();
+  const todayStr = today();
+  const lateCon = (st.construction || [])
+    .map((c, i) => ({ i, c }))
+    .filter(({ c }) => c.status === "지연");
+  const overdueTodos = (st.todos || [])
+    .filter(t => t.due && t.due < todayStr && !["완료", "취소"].includes(t.status));
+
+  const items = [
+    ...lateCon.map(({ c, i }) => ({
+      kind: "con", i, title: c.site || "이름 없는 발전소",
+      meta: `시공 지연 · ${c.company || "-"} · ${c.next || "다음 액션 없음"}`,
+    })),
+    ...overdueTodos.map(t => ({
+      kind: "todo", id: t.id, title: t.title,
+      meta: `할일 마감초과(${t.due}) · ${t.owner || "담당 미정"}`,
+    })),
+  ];
+
+  if (!items.length) return `<div class="meta">지금 처리할 지연 항목이 없습니다.</div>`;
+  return items.map(it => it.kind === "con"
+    ? `<button class="linked-item" data-dash-con="${it.i}"><strong>${esc(it.title)}</strong><div class="meta">${esc(it.meta)}</div></button>`
+    : `<button class="linked-item" data-edit-todo="${esc(it.id)}"><strong>${esc(it.title)}</strong><div class="meta">${esc(it.meta)}</div></button>`
+  ).join("");
 }
 
 // ── 날씨 ─────────────────────────────────────────────────────────────────────
@@ -158,16 +196,16 @@ async function loadWeather() {
   }
 }
 
-// ── 시계 ─────────────────────────────────────────────────────────────────────
+// ── 시계 (카드 제목 옆에 작게 표시) ──────────────────────────────────────────
 function startClock() {
   if (_clockTimer) clearInterval(_clockTimer);
   function tick() {
-    const el = document.getElementById("dashClock");
+    const el = document.getElementById("dashClockInline");
     if (!el) { clearInterval(_clockTimer); _clockTimer = null; return; }
     const now = new Date();
-    el.textContent = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    const dateEl = document.getElementById("dashClockDate");
-    if (dateEl) dateEl.textContent = now.toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric", weekday:"long" });
+    const time = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    const date = now.toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
+    el.textContent = `${date} · ${time}`;
   }
   tick();
   _clockTimer = setInterval(tick, 1000);
@@ -196,37 +234,28 @@ function ensureDashboardShell(panel) {
         </section>
       </aside>
 
-      <!-- 가운데: KPI + 지연 목록 -->
+      <!-- 가운데: 파이프라인 + 우선순위 + KPI -->
       <div class="dash-main">
+        <section id="dashPipeline"></section>
+
+        <section class="dash-section compact">
+          <div class="dash-title"><h2>🔥 지금 처리 필요</h2></div>
+          <div class="linked-list" id="dashAttentionList"></div>
+        </section>
+
         <section class="dash-section">
           <div class="dash-title">
             <h2 id="dashKpiTitle"></h2>
+            <span id="dashClockInline" class="meta"></span>
           </div>
           <div id="dashKpiBody"></div>
         </section>
 
-        <!-- 날씨 + 시계 -->
-        <div class="dash-top-grid">
-          <section class="dash-section compact" style="margin:0">
-            <div class="dash-title"><h2>🏗️ 시공 기상정보</h2><button class="btn" data-refresh-weather>새로고침</button></div>
-            <div id="dashWeatherContent" class="weather-grid"><div class="meta">기상 정보를 불러오는 중...</div></div>
-            <div class="label" style="margin-top:10px">대구 7일 시공 예보</div>
-            <div id="dashForecastContent" class="forecast-strip"></div>
-          </section>
-          <section class="weather-clock-box" style="margin:0;position:relative;overflow:hidden;min-height:180px">
-            <div id="dashClockBg" style="position:absolute;inset:0;background-size:cover;background-position:center;opacity:0.75;pointer-events:none"></div>
-            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,.38));pointer-events:none"></div>
-            <div style="position:relative;z-index:2;width:100%;text-align:center;padding:16px 0">
-              <div id="dashClockDate" style="font-size:13px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.6px;margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.6)"></div>
-              <div id="dashClock" style="font-size:44px;font-weight:800;letter-spacing:-2px;color:#fff;line-height:1;text-shadow:0 3px 12px rgba(0,0,0,.75)"></div>
-              <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:10px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.5)">Asia/Seoul 기준</div>
-            </div>
-          </section>
-        </div>
-
         <section class="dash-section compact">
-          <div class="dash-title"><h2>⚠️ 지연/확인 필요</h2></div>
-          <div class="linked-list" id="dashAttentionList"></div>
+          <div class="dash-title"><h2>🏗️ 시공 기상정보</h2><button class="btn" data-refresh-weather>새로고침</button></div>
+          <div id="dashWeatherContent" class="weather-grid"><div class="meta">기상 정보를 불러오는 중...</div></div>
+          <div class="label" style="margin-top:10px">대구 7일 시공 예보</div>
+          <div id="dashForecastContent" class="forecast-strip"></div>
         </section>
       </div>
 
@@ -258,8 +287,6 @@ function ensureDashboardShell(panel) {
 
   startClock();
   loadWeather();
-  const saved = localStorage.getItem("clockBgImage");
-  if (saved) { const el = document.getElementById("dashClockBg"); if (el) el.style.backgroundImage = `url(${saved})`; }
 }
 
 function render() {
@@ -290,12 +317,6 @@ function renderDashboardResults(panel) {
     assigns: assigns.filter(a => a.due === _selDate || a.start === _selDate),
   };
 
-  // 최근 지연/주목
-  const needAttention = allCon
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => c.status === "지연" || (c.next && c.status === "시공중"))
-    .slice(0, 8);
-
   const pillRow = panel.querySelector("#dashPillRow");
   if (pillRow) pillRow.innerHTML = `
     <span class="dash-pill">${ym}</span>
@@ -319,14 +340,11 @@ function renderDashboardResults(panel) {
   const kpiBody = panel.querySelector("#dashKpiBody");
   if (kpiBody) kpiBody.innerHTML = kpiSection(rows, allCon);
 
+  const pipeline = panel.querySelector("#dashPipeline");
+  if (pipeline) pipeline.innerHTML = pipelineFunnel();
+
   const attentionList = panel.querySelector("#dashAttentionList");
-  if (attentionList) attentionList.innerHTML = needAttention.length
-    ? needAttention.map(({ c, i }) =>
-        `<button class="linked-item" data-dash-con="${i}">
-          <strong>${esc(c.site)}</strong>
-          <div class="meta">${esc(c.status||"-")} · ${esc(c.next||"다음 액션 없음")}</div>
-        </button>`).join("")
-    : `<div class="meta">이번 달 특이사항이 없습니다.</div>`;
+  if (attentionList) attentionList.innerHTML = priorityList();
 
   const monthLabel = panel.querySelector("#dashMonthLabel");
   if (monthLabel) monthLabel.textContent = monthStr();

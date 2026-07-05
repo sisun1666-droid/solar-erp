@@ -55,7 +55,7 @@ function defaultItem() {
 }
 
 // 레거시 단일 projectId만 있던 기록도 배열로 다뤄서 이후 로직을 하나로 통일한다.
-function linkedProjectIdsOf(c) {
+export function linkedProjectIdsOf(c) {
   if (c.projectIds?.length) return c.projectIds;
   return c.projectId ? [c.projectId] : [];
 }
