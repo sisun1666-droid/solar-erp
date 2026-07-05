@@ -7,6 +7,7 @@ let _search  = "";
 let _phase   = "전체";
 let _sortKey = "";
 let _sortDir = "asc";
+let _hideDone = true; // 계속 쌓이는 완료 항목을 기본으로 접어둔다 — 검색/단계 필터와는 별개로 항상 적용
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────
 function durationDays(start, end) {
@@ -65,6 +66,7 @@ function sortRows(rows) {
 
 function filterRows(list) {
   return list.filter(c => {
+    if (_hideDone && !_search && _phase === "전체" && c.status === "완료") return false;
     if (_phase !== "전체" && c.phase !== _phase) return false;
     if (_search) {
       const hay = Object.values(c).join(" ").toLowerCase();
@@ -83,9 +85,16 @@ function ensureConstructionShell(panel) {
     <div class="toolbar" style="margin-bottom:12px">
       <input class="search" id="conSearch" placeholder="현장, 시공사, 고객 검색" value="${esc(_search)}" style="max-width:260px">
       <div id="conPhaseSlot"></div>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);white-space:nowrap">
+        <input type="checkbox" id="conHideDone"${_hideDone ? " checked" : ""}> 완료 숨기기
+      </label>
       <button class="btn primary" id="conAddBtn">시공일정 추가</button>
     </div>
     <div id="conResultsWrap"></div>`;
+
+  panel.querySelector("#conHideDone")?.addEventListener("change", e => {
+    _hideDone = e.target.checked; renderTable(panel);
+  });
 
   onSearchInput(panel.querySelector("#conSearch"), e => {
     _search = e.target.value; renderTable(panel);
@@ -108,7 +117,10 @@ function renderTable(panel) {
     });
   }
 
-  const rows = sortRows(filterRows(list.map((c, i) => ({ ...c, _i: i }))));
+  const indexed = list.map((c, i) => ({ ...c, _i: i }));
+  const rows = sortRows(filterRows(indexed));
+  const hiddenDoneCount = indexed.length - rows.length > 0 && _hideDone && !_search && _phase === "전체"
+    ? indexed.filter(c => c.status === "완료").length : 0;
 
   function sortHead(key, label) {
     const mark = _sortKey === key ? (_sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -132,6 +144,7 @@ function renderTable(panel) {
           </div>`).join("")}
         </div>
       </div>` : ""}
+    ${hiddenDoneCount ? `<div class="meta" style="margin-bottom:8px">완료 ${hiddenDoneCount}건 숨김 (체크박스 해제 시 표시)</div>` : ""}
     <div class="table-wrap">
       <table>
         <thead>

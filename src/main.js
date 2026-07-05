@@ -15,6 +15,7 @@ import { initMessages   } from "./features/messages.js";
 import { initReports    } from "./features/reports.js";
 import { initInspection } from "./features/inspection.js";
 import { initDashboard    } from "./features/dashboard.js";
+import { initStats      } from "./features/stats.js";
 import { initKnowledge   } from "./features/knowledge.js";
 import { initAdmin      } from "./features/admin.js";
 import { initKakaoShare  } from "./features/kakaoShare.js";
@@ -47,6 +48,7 @@ async function boot() {
   initReports();
   initInspection();
   initDashboard();
+  initStats();
   initKnowledge();
   initAdmin();
   initKakaoShare();
