@@ -1372,6 +1372,25 @@ body {
 /* 구조물 검수 뷰 */
 [data-theme="dark"] .insp-header-card,[data-theme="dark"] .insp-cat,[data-theme="dark"] .insp-list{background:var(--panel);border-color:var(--line)}
 [data-theme="dark"] .insp-memo{background:var(--panel);border-color:var(--line);color:var(--ink)}
+/* 대시보드/통계 KPI 타일 — 흰 배경 하드코딩이라 다크모드에서 밝은 글자와 부딪히던 것 수정 */
+[data-theme="dark"] .dash-section{background:var(--panel);border-color:var(--line)}
+[data-theme="dark"] .donut span{background:var(--panel)}
+[data-theme="dark"] .todo-view{background:#1a2822;border-color:var(--line)}
+[data-theme="dark"] .todo-view button{background:transparent;color:var(--muted)}
+[data-theme="dark"] .memo-item,[data-theme="dark"] .linked-item{background:#1a2822;border-color:var(--line)}
+[data-theme="dark"] .helper-grid label{background:#1a2822;border-color:var(--line)}
+[data-theme="dark"] .auth-card{background:var(--panel)}
+[data-theme="dark"] .app-update-notice{background:var(--panel);border-color:var(--line)}
+[data-theme="dark"] .fieldwork-kpi,[data-theme="dark"] .fieldwork-card,[data-theme="dark"] .fieldwork-log,[data-theme="dark"] .fieldwork-map-panel{background:var(--panel);border-color:var(--line)}
+[data-theme="dark"] .fieldwork-map-caption{background:var(--panel);color:var(--ink)}
+[data-theme="dark"] .dispatch-panel{background:var(--panel);border-color:var(--line)}
+[data-theme="dark"] .construction-db-results{background:var(--panel);border-color:var(--line)}
+[data-theme="dark"] .project-item{background:#1a2822}
+[data-theme="dark"] .project-item:hover,[data-theme="dark"] .project-item.active{background:#1e2e29}
+[data-theme="dark"] .mini-day{background:#1a2822;color:var(--ink)}
+[data-theme="dark"] .mini-day.muted{color:var(--muted);opacity:.6}
+[data-theme="dark"] .mini-day.today{background:var(--teal);color:#fff}
+[data-theme="dark"] .mini-day.active:not(.today){background:#1e2e29;color:var(--ink)}
 /* ══════════════════════════════════════
    모바일 사이드바 (햄버거 메뉴)
 ══════════════════════════════════════ */
