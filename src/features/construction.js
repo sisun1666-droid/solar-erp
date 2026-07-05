@@ -8,6 +8,7 @@ let _phase   = "전체";
 let _sortKey = "";
 let _sortDir = "asc";
 let _hideDone = true; // 계속 쌓이는 완료 항목을 기본으로 접어둔다 — 검색/단계 필터와는 별개로 항상 적용
+let _modalProjectIds = []; // 모달에서 지금까지 연결한 프로젝트DB 현장 id들 (도면상 한 부지를 호기별로 나눠 등록한 경우 kW 합산용)
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────
 function durationDays(start, end) {
@@ -47,10 +48,16 @@ function defaultItem() {
   return {
     company: st.constructionTeams?.[0] || "",
     structureTeam: st.structureTeams?.[0] || "",
-    projectId: "", site: "", address: "", kw: 0, sales: "", customer: "",
+    projectId: "", projectIds: [], site: "", address: "", kw: 0, sales: "", customer: "",
     phase: st.constructionPhases?.[0] || "착공",
     owner: "", start: today(), end: "", status: "예정", next: "",
   };
+}
+
+// 레거시 단일 projectId만 있던 기록도 배열로 다뤄서 이후 로직을 하나로 통일한다.
+function linkedProjectIdsOf(c) {
+  if (c.projectIds?.length) return c.projectIds;
+  return c.projectId ? [c.projectId] : [];
 }
 
 // ── 테이블 렌더 ─────────────────────────────────────────────────────────────
@@ -129,7 +136,7 @@ function renderTable(panel) {
 
   const wrap = panel.querySelector("#conResultsWrap");
   if (!wrap) return;
-  const linkedIds = new Set(list.map(c => c.projectId).filter(Boolean));
+  const linkedIds = new Set(list.flatMap(linkedProjectIdsOf));
   const candidates = (st.projects || []).filter(p => permitsReady(p) && !linkedIds.has(p.id));
 
   wrap.innerHTML = `
@@ -233,28 +240,71 @@ export function openConstructionById(id) {
   if (idx >= 0) openModal(idx);
 }
 
-// "시공 등록 대기" 카드에서 바로 호출 — 새 항목을 열고 프로젝트를 선택한 상태로 시작해서
+// "시공 등록 대기" 카드에서 바로 호출 — 새 항목을 열고 프로젝트를 연결한 상태로 시작해서
 // site/address/customer/owner 자동 채움을 그대로 재사용한다.
 export function openConstructionForProject(projectId) {
   openModal(null);
-  const p = getState().projects?.find(x => x.id === projectId);
-  if (p) applyProjectAutofill(p);
-}
-
-// 프로젝트DB의 site/address/customer/sales/kw를 시공일정 입력칸에 채워온다.
-// 담당자(conOwner)는 프로젝트DB에 대응 항목이 없어 건드리지 않는다.
-function applyProjectAutofill(p) {
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-  document.getElementById("conProjectId").value = p.id;
-  set("conProjectSearch", projectLabel(p));
-  set("conSite", p.name || "");
-  set("conAddress", p.address || "");
-  set("conCustomer", p.bizOwner || "");
-  set("conSales", p.owner || "");
-  if (p.kw) set("conKw", p.kw);
+  addProjectLink(projectId);
 }
 
 function projectLabel(p) { return p.name + (p.address ? " · " + p.address : ""); }
+
+// 새터1호/새터2호처럼 도면상 한 부지를 호기별로 나눠 등록한 현장들을 여러 개 연결하면,
+// site/address/customer/sales는 첫 현장 기준으로 채우고 kW만 전부 합산한다 —
+// 실제로 호기마다 주소·사업주는 같고 발전용량만 나뉘어 기재되는 경우가 대부분이라서.
+function applyLinkedProjectsAutofill() {
+  const projects = getState().projects || [];
+  const linked = _modalProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
+  if (!linked.length) return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  const first = linked[0];
+  set("conSite", linked.map(p => p.name).filter(Boolean).join("+") || first.name || "");
+  set("conAddress", first.address || "");
+  set("conCustomer", first.bizOwner || "");
+  set("conSales", first.owner || "");
+  const kwSum = Math.round(linked.reduce((s, p) => s + (Number(p.kw) || 0), 0) * 100) / 100;
+  if (kwSum) set("conKw", kwSum);
+}
+
+function renderProjectChips() {
+  const wrap = document.getElementById("conProjectChips");
+  if (!wrap) return;
+  const projects = getState().projects || [];
+  const linked = _modalProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
+  wrap.innerHTML = linked.map(p => `
+    <span class="stats-legend-item" style="background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px">
+      ${esc(p.name)}
+      <button type="button" class="btn icon" data-con-unlink-project="${esc(p.id)}" style="min-height:auto;padding:0 2px;border:0;background:none">×</button>
+    </span>`).join("") || `<span class="meta">연결된 현장 없음</span>`;
+}
+
+function refreshProjectDatalist() {
+  const dl = document.getElementById("conProjectDatalist");
+  if (!dl) return;
+  const projects = (getState().projects || []).filter(p => !_modalProjectIds.includes(p.id));
+  dl.innerHTML = projects.map(p => `<option value="${esc(projectLabel(p))}">`).join("");
+}
+
+function addProjectLink(id) {
+  if (!id || _modalProjectIds.includes(id)) return;
+  _modalProjectIds.push(id);
+  renderProjectChips();
+  refreshProjectDatalist();
+  applyLinkedProjectsAutofill();
+}
+
+function removeProjectLink(id) {
+  _modalProjectIds = _modalProjectIds.filter(x => x !== id);
+  renderProjectChips();
+  refreshProjectDatalist();
+  const projects = getState().projects || [];
+  const kwSum = Math.round(_modalProjectIds
+    .map(pid => projects.find(p => p.id === pid))
+    .filter(Boolean)
+    .reduce((s, p) => s + (Number(p.kw) || 0), 0) * 100) / 100;
+  const kwEl = document.getElementById("conKw");
+  if (kwEl) kwEl.value = kwSum;
+}
 
 function openModal(idx = null) {
   _editing = idx;
@@ -271,17 +321,17 @@ function openModal(idx = null) {
   const statusOpts = statusList.map(s =>
     `<option${s === c.status ? " selected" : ""}>${esc(s)}</option>`).join("");
   const projects = st.projects || [];
-  const linkedProject = projects.find(p => p.id === c.projectId);
-  const projectDatalist = projects.map(p =>
+  _modalProjectIds = linkedProjectIdsOf(c).filter(id => projects.some(p => p.id === id));
+  const projectDatalist = projects.filter(p => !_modalProjectIds.includes(p.id)).map(p =>
     `<option value="${esc(projectLabel(p))}">`).join("");
 
   document.getElementById("constructionFormGrid").innerHTML = `
     <div class="form-row full">
-      <label>연결된 현장 (프로젝트DB)</label>
+      <label>연결된 현장 (프로젝트DB) — 여러 현장을 연결하면 kW가 합산됩니다</label>
+      <div id="conProjectChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
       <input class="field" id="conProjectSearch" list="conProjectDatalist" autocomplete="off"
-        placeholder="현장명 입력해서 검색 (직접 입력해도 됨)" value="${esc(linkedProject ? projectLabel(linkedProject) : "")}">
+        placeholder="현장명 검색 후 선택하면 추가됩니다">
       <datalist id="conProjectDatalist">${projectDatalist}</datalist>
-      <input type="hidden" id="conProjectId" value="${esc(c.projectId || "")}">
     </div>
     <div class="form-row">
       <label>시공사</label>
@@ -342,13 +392,18 @@ function openModal(idx = null) {
     if (next) next.value = withStatusLine(next.value, e.target.value);
   });
 
-  // 프로젝트DB 현장을 검색해서 고르면 중복 입력 없이 site/address/customer/sales/kw를 채워온다.
+  // 프로젝트DB 현장을 검색해서 고르면 칩으로 추가하고 입력창을 비워 다음 현장을 이어서 검색할 수 있게 한다.
   document.getElementById("conProjectSearch")?.addEventListener("input", e => {
     const text = e.target.value;
-    if (!text) { document.getElementById("conProjectId").value = ""; return; }
+    if (!text) return;
     const p = projects.find(x => projectLabel(x) === text);
-    if (p) applyProjectAutofill(p);
+    if (p) { addProjectLink(p.id); e.target.value = ""; }
   });
+  document.getElementById("conProjectChips")?.addEventListener("click", e => {
+    const id = e.target.closest("[data-con-unlink-project]")?.dataset.conUnlinkProject;
+    if (id) removeProjectLink(id);
+  });
+  renderProjectChips();
 
   document.getElementById("deleteConstructionBtn")?.classList.toggle("hidden", idx === null);
   const m = document.getElementById("constructionModal");
@@ -362,7 +417,8 @@ function saveModal() {
   const c = normConstruction({
     company:       document.getElementById("conCompany")?.value || "",
     structureTeam: document.getElementById("conStructureTeam")?.value || "",
-    projectId:     document.getElementById("conProjectId")?.value || "",
+    projectId:     _modalProjectIds[0] || "",
+    projectIds:    [..._modalProjectIds],
     site:          document.getElementById("conSite")?.value || "",
     kw:            Number(document.getElementById("conKw")?.value) || 0,
     sales:         document.getElementById("conSales")?.value || "",
