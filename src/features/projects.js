@@ -227,6 +227,11 @@ const PROJECT_FIELDS = [
   { key: "permitConstruction", label: "공사계획필증 허가일" },
 ];
 
+// "발전_허가용량"이 비어있는 행을 위한 대체 용량 컬럼 (우선순위 순).
+// 마스터 트래킹 시트에서 실측으로 이 세 컬럼 중 하나라도 채워진 값이면
+// 발전_허가용량이 빈 1838건 중 1249건을 추가로 커버함(나머지는 시트 자체에 값 없음).
+const KW_FALLBACK_HEADERS = ["공사계획_허가용량", "구조물_발주용량", "공사_용량"];
+
 // 시공 착수에 필요한 5개 허가/납부 항목이 전부 채워졌는지 (값이 있으면 완료로 간주)
 export function permitsReady(p) {
   return !!(p.permitPower && p.permitDev && p.permitPpa && p.permitFee && p.permitConstruction);
@@ -353,6 +358,16 @@ function openCsvMapModal(headers, dataRows) {
       for (const f of PROJECT_FIELDS) {
         if (f.key === "name" || !(map[f.key] >= 0)) continue;
         fields[f.key] = f.key === "due" ? normDate(row[map[f.key]]) : (row[map[f.key]] || "").trim();
+      }
+      // 발전_허가용량이 빈 발전소가 많아(오래된 현장 등) 다른 용량 컬럼에 있는
+      // 값으로 대신 채운다. 마스터 시트에 실제 존재하는 헤더명만 대상으로 하며,
+      // 매핑 화면에서 고른 열이 비어있을 때만 순서대로 시도한다.
+      if (!fields.kw) {
+        for (const h of KW_FALLBACK_HEADERS) {
+          const hi = headers.indexOf(h);
+          const v = hi >= 0 ? (row[hi] || "").trim() : "";
+          if (v) { fields.kw = v; break; }
+        }
       }
 
       const rowOwner = map.owner >= 0 ? (row[map.owner] || "").trim() : undefined;
