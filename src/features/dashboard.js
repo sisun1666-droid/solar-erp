@@ -138,6 +138,39 @@ function workloadSection() {
       : `<div class="meta">구조물팀 데이터가 없습니다.</div>`}`;
 }
 
+// ── 최근 활동 (완료된 시공/할일 + 저장된 보고서를 최근순으로) ───────────────
+function timeAgo(stamp) {
+  const then = new Date(stamp.length > 10 ? stamp : stamp + "T00:00");
+  const diffMin = Math.round((Date.now() - then.getTime()) / 60000);
+  if (diffMin < 1) return "방금 전";
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `${diffH}시간 전`;
+  return `${Math.round(diffH / 24)}일 전`;
+}
+
+function recentActivityFeed() {
+  const st = getState();
+  const events = [
+    ...(st.construction || []).filter(c => c.completedAt).map(c => ({
+      t: c.completedAt, icon: "🏗️", text: `${c.site || "이름 없는 발전소"} 시공 완료`,
+    })),
+    ...(st.todos || []).filter(t => t.completedAt).map(t => ({
+      t: t.completedAt, icon: "✅", text: `${t.title} 완료`,
+    })),
+    ...(st.reports || []).filter(r => r.savedAt).map(r => ({
+      t: r.savedAt, icon: "📄", text: `${r.typeLabel || "보고서"} 저장 (${r.meta || ""})`,
+    })),
+  ].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 8);
+
+  if (!events.length) return `<div class="meta">최근 활동이 없습니다.</div>`;
+  return events.map(e => `
+    <div class="linked-item" style="cursor:default">
+      <strong>${e.icon} ${esc(e.text)}</strong>
+      <div class="meta">${esc(timeAgo(e.t))}</div>
+    </div>`).join("");
+}
+
 // ── 지금 처리 필요 (지연 시공 + 마감 초과 할일 통합) ────────────────────────
 function priorityList() {
   const st = getState();
@@ -306,6 +339,11 @@ function ensureDashboardShell(panel) {
           </div>
           <div class="today-list" id="dashTodayList"></div>
         </section>
+
+        <section class="dash-section compact">
+          <div class="dash-title"><h2>🕘 최근 활동</h2></div>
+          <div class="linked-list" id="dashRecentActivity"></div>
+        </section>
       </aside>
     </div>`;
 
@@ -379,6 +417,9 @@ function renderDashboardResults(panel) {
 
   const workload = panel.querySelector("#dashWorkload");
   if (workload) workload.innerHTML = workloadSection();
+
+  const recent = panel.querySelector("#dashRecentActivity");
+  if (recent) recent.innerHTML = recentActivityFeed();
 
   // 다른 직원이 저장한 공지 내용을 반영하되, 지금 이 창에서 타이핑 중이면 덮어쓰지 않는다.
   const noticeEl = panel.querySelector("#dashTeamNotice");
