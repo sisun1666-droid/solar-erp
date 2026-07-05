@@ -2,6 +2,7 @@ import { getState, setState, on } from "../store/index.js";
 import { esc, genId, toast } from "../utils/index.js";
 import { isConnected, requestToken, clearToken } from "./gcal.js";
 import { isConnected as kakaoConnected, startKakaoLogin, disconnectKakao } from "./kakao.js";
+import { DEFAULT_MSG_CATS } from "./messages.js";
 
 // ── 기본값 ───────────────────────────────────────────────────────────────────
 export const DEFAULTS = {
@@ -155,6 +156,35 @@ function sheetsCard() {
     </div>`;
 }
 
+// ── 메시지 자동응답 카테고리 카드 ─────────────────────────────────────────────
+function msgCatsCard() {
+  const st = getState();
+  const cats = st.msgCategories?.length ? st.msgCategories : DEFAULT_MSG_CATS;
+  const badgeOpts = ["red","amber","blue","green"];
+  return `
+    <div class="card" style="grid-column:1/-1">
+      <div class="panel-title">
+        <h2>💬 메시지 자동응답 카테고리</h2>
+        <button class="btn" id="adminAddMsgCatBtn">+ 카테고리 추가</button>
+      </div>
+      <p class="meta" style="margin:0 0 12px">메시지 화면에서 문의 내용에 이 키워드(쉼표로 구분)가 있으면 이 유형으로 인식하고, 아래 답변을 초안으로 채웁니다.</p>
+      <div class="admin-list" id="adminMsgCatList" style="display:grid;gap:10px">
+        ${cats.map((c, i) => `
+          <div class="admin-item" style="grid-template-columns:minmax(0,.9fr) 100px minmax(0,1.6fr) auto;align-items:start">
+            <div style="display:grid;gap:6px">
+              <input class="field" data-msgcat-type="${i}" value="${esc(c.type)}" placeholder="유형명">
+              <input class="field" data-msgcat-keys="${i}" value="${esc((c.keys||[]).join(", "))}" placeholder="키워드(쉼표로 구분)">
+            </div>
+            <select class="field" data-msgcat-badge="${i}">
+              ${badgeOpts.map(b => `<option value="${b}"${b === c.badge ? " selected" : ""}>${esc(b)}</option>`).join("")}
+            </select>
+            <textarea class="field" data-msgcat-reply="${i}" style="min-height:60px">${esc(c.reply)}</textarea>
+            <button class="btn icon danger" data-msgcat-del="${i}">×</button>
+          </div>`).join("")}
+      </div>
+    </div>`;
+}
+
 // ── 메인 렌더 ────────────────────────────────────────────────────────────────
 function render() {
   const panel = document.getElementById("adminView");
@@ -185,9 +215,16 @@ function render() {
       ${card("시공 단계", "constructionPhases", "새 단계", "단계 추가")}
       ${card("시공사", "constructionTeams", "새 시공사", "시공사 추가")}
       ${card("구조물팀", "structureTeams", "새 팀", "팀 추가")}
+      ${msgCatsCard()}
     </div>`;
 
   bindEvents(panel);
+}
+
+// 아직 한 번도 손대지 않았으면(state에 없으면) 기본값을 복제해서 편집을 시작한다.
+function currentMsgCats() {
+  const st = getState();
+  return (st.msgCategories?.length ? st.msgCategories : DEFAULT_MSG_CATS).map(c => ({ ...c, keys: [...(c.keys || [])] }));
 }
 
 // ── 이벤트 바인딩 ─────────────────────────────────────────────────────────────
@@ -258,6 +295,27 @@ function bindEvents(panel) {
       people[Number(t.dataset.personPin)] = { ...people[Number(t.dataset.personPin)], pin: t.value };
       setState({ people }, { silent: true });
     }
+    if (t.dataset.msgcatType !== undefined) {
+      const cats = currentMsgCats();
+      cats[Number(t.dataset.msgcatType)] = { ...cats[Number(t.dataset.msgcatType)], type: t.value };
+      setState({ msgCategories: cats }, { silent: true });
+    }
+    if (t.dataset.msgcatKeys !== undefined) {
+      const cats = currentMsgCats();
+      const i = Number(t.dataset.msgcatKeys);
+      cats[i] = { ...cats[i], keys: t.value.split(",").map(s => s.trim()).filter(Boolean) };
+      setState({ msgCategories: cats }, { silent: true });
+    }
+    if (t.dataset.msgcatBadge !== undefined) {
+      const cats = currentMsgCats();
+      cats[Number(t.dataset.msgcatBadge)] = { ...cats[Number(t.dataset.msgcatBadge)], badge: t.value };
+      setState({ msgCategories: cats }, { silent: true });
+    }
+    if (t.dataset.msgcatReply !== undefined) {
+      const cats = currentMsgCats();
+      cats[Number(t.dataset.msgcatReply)] = { ...cats[Number(t.dataset.msgcatReply)], reply: t.value };
+      setState({ msgCategories: cats }, { silent: true });
+    }
   });
 
   panel.addEventListener("click", e => {
@@ -280,6 +338,18 @@ function bindEvents(panel) {
       const people = [...(st.people || [])];
       people.splice(Number(t.dataset.personDel), 1);
       setState({ people });
+      render(); return;
+    }
+    if (t.id === "adminAddMsgCatBtn") {
+      const cats = [...currentMsgCats(), { type: "새 카테고리", badge: "blue", keys: [], reply: "" }];
+      setState({ msgCategories: cats });
+      render(); return;
+    }
+    if (t.dataset.msgcatDel !== undefined) {
+      if (!confirm("이 카테고리를 삭제할까요?")) return;
+      const cats = currentMsgCats();
+      cats.splice(Number(t.dataset.msgcatDel), 1);
+      setState({ msgCategories: cats });
       render(); return;
     }
   });

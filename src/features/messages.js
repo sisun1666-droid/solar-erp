@@ -1,7 +1,8 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
 import { genId, today, esc, toast, $ } from "../utils/index.js";
 
-const MSG_CATS = [
+// 관리자 화면에서 직접 수정할 수 있는 기본값 — 사용자가 한 번도 손대지 않았으면 이 값을 쓴다.
+export const DEFAULT_MSG_CATS = [
   { type:"안전·긴급", badge:"red",   keys:["긴급","위험","화재","누전","감전","정전","사고","파손","연기","탄냄새","침수","낙뢰"], reply:"안전과 직결될 수 있는 내용이라 우선 확인하겠습니다. 설비 주변 접근은 잠시 피하시고, 차단기·인버터 화면·현장 상태 사진을 보내주시면 1차로 위험 여부를 확인하겠습니다." },
   { type:"누수 A/S",   badge:"amber", keys:["누수","물이새","물 새","빗물","방수","지붕","물떨어","샘","새는"], reply:"누수 위치, 물이 떨어지는 지점, 구조물 주변 사진을 보내주시면 담당자가 1차 확인 후 보수 범위와 가능한 일정을 조율해 안내드리겠습니다." },
   { type:"인버터 A/S", badge:"amber", keys:["인버터","에러","오류","알람","발전량","발전 안","정지","접속반","차단기","전압","통신"], reply:"인버터 화면, 에러코드, 차단기 상태, 발생 시간을 사진으로 보내주시면 원격 확인 후 방문 필요 여부와 일정을 안내드리겠습니다." },
@@ -13,9 +14,14 @@ const MSG_CATS = [
   { type:"불만 민원",  badge:"red",   keys:["불만","항의","민원","짜증","화남","책임","약속","연락없","연락 안","왜 이렇게"], reply:"불편을 드려 죄송합니다. 발생 내용과 원하시는 조치 방향을 정리해 주시면, 현장 상황 확인 후 처리 방향을 안내드리겠습니다." },
 ];
 
+function msgCategories() {
+  const cats = getState().msgCategories;
+  return cats?.length ? cats : DEFAULT_MSG_CATS;
+}
+
 function analyzeMsg(text) {
   const low = String(text || "").toLowerCase();
-  const scored = MSG_CATS.map(c => ({ c, s: c.keys.reduce((n, k) => n + (low.includes(k) ? 1 : 0), 0) })).sort((a, b) => b.s - a.s);
+  const scored = msgCategories().map(c => ({ c, s: (c.keys||[]).reduce((n, k) => n + (low.includes(k) ? 1 : 0), 0) })).sort((a, b) => b.s - a.s);
   const best = scored[0]?.s ? scored[0].c : { type:"일반 문의", badge:"blue", reply:"문의 내용 확인했습니다. 담당자가 검토한 뒤 처리 방향을 안내드리겠습니다." };
   const urgent = /오늘|즉시|빨리|급|당장/.test(text);
   const acts = [];
@@ -58,22 +64,27 @@ function getMsgForm() {
   };
 }
 
-function updateMsgPreview() {
+// 초안을 직접 손으로 고친 뒤에는, 다른 입력칸(고객명/현장/말투)을 건드려도
+// 그 수정본을 덮어쓰지 않는다 — "다시 생성" 버튼을 눌러야만 초기화된다.
+let _draftEdited = false;
+
+function updateMsgPreview({ force = false } = {}) {
   const { sender, site, tone, incoming } = getMsgForm();
   const a = analyzeMsg(incoming);
-  const reply = buildMsgReply(sender || "고객", site, tone, a);
   const badge = $("msgTypeBadge");
   if (badge) { badge.className = `badge ${a.badge}`; badge.textContent = a.type; }
   const urgEl = $("msgUrgency"); if (urgEl) urgEl.textContent = a.urgency;
   const actEl = $("msgAction");  if (actEl) actEl.textContent = a.actions[0] || "";
-  const outEl = $("msgOutput");  if (outEl) outEl.textContent = reply;
+  if (!force && _draftEdited) return;
+  const reply = buildMsgReply(sender || "고객", site, tone, a);
+  const outEl = $("msgOutput"); if (outEl) outEl.value = reply;
 }
 
 function saveMsgFromForm() {
-  const { sender, site, tone, incoming } = getMsgForm();
+  const { sender, site, incoming } = getMsgForm();
   if (!incoming) { toast("메시지 내용을 먼저 입력하세요."); return; }
   const a = analyzeMsg(incoming);
-  const reply = buildMsgReply(sender || "고객", site, tone, a);
+  const reply = $("msgOutput")?.value || "";
   const msgs = [
     { id: genId("msg"), date: today(), time: new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
       sender: sender || "고객", site, incoming, reply,
@@ -81,6 +92,7 @@ function saveMsgFromForm() {
     ...(getState().messages || []),
   ];
   setState({ messages: msgs });
+  _draftEdited = false;
   toast("접수 저장됐습니다.");
   renderMessages();
 }
@@ -88,6 +100,7 @@ function saveMsgFromForm() {
 function renderMessages() {
   const el = $("messagesView");
   if (!el) return;
+  _draftEdited = false; // 폼 전체가 다시 그려지므로 이전 편집 상태를 들고 있을 이유가 없다
   const msgs = (getState().messages || []).slice(0, 30);
 
   el.innerHTML = `
@@ -115,8 +128,8 @@ function renderMessages() {
             <div class="kpi compact"><div class="label">필요 조치</div><div class="value" style="font-size:13px" id="msgAction">-</div></div>
             <div class="kpi compact"><div class="label">저장 건수</div><div class="value">${msgs.length}</div></div>
           </div>
-          <div class="label" style="margin-bottom:6px">답변 초안</div>
-          <div id="msgOutput" style="border:1px solid #cfe3d8;background:#f7fffb;border-radius:8px;padding:14px;white-space:pre-wrap;line-height:1.7;font-size:13px;min-height:100px;color:var(--muted)">메시지를 입력하면 답변 초안이 여기에 표시됩니다.</div>
+          <div class="dash-title" style="margin-bottom:6px"><h2 class="label" style="margin:0">답변 초안 (직접 수정 가능)</h2><button class="btn" id="msgRegenBtn">다시 생성</button></div>
+          <textarea id="msgOutput" class="field" style="border:1px solid #cfe3d8;background:#f7fffb;white-space:pre-wrap;line-height:1.7;font-size:13px;min-height:160px;width:100%;box-sizing:border-box" placeholder="메시지를 입력하면 답변 초안이 여기에 표시됩니다."></textarea>
         </div>
         <div class="panel" style="padding:16px">
           <div class="panel-title"><h2>접수 이력</h2><span class="meta">최근 30건</span></div>
@@ -144,9 +157,15 @@ function renderMessages() {
   $("msgSaveBtn")?.addEventListener("click", saveMsgFromForm);
   $("msgClearBtn")?.addEventListener("click", () => {
     ["msgSender","msgSite","msgIncoming"].forEach(id => { const e = $(id); if (e) e.value = ""; });
-    updateMsgPreview();
+    _draftEdited = false;
+    updateMsgPreview({ force: true });
   });
-  $("msgCopyBtn")?.addEventListener("click", () => copyText($("msgOutput")?.textContent || ""));
+  $("msgRegenBtn")?.addEventListener("click", () => {
+    _draftEdited = false;
+    updateMsgPreview({ force: true });
+  });
+  $("msgOutput")?.addEventListener("input", () => { _draftEdited = true; });
+  $("msgCopyBtn")?.addEventListener("click", () => copyText($("msgOutput")?.value || ""));
 
   el.querySelectorAll("[data-msg-copy]").forEach(btn =>
     btn.addEventListener("click", () => copyText(getState().messages[Number(btn.dataset.msgCopy)]?.reply || ""))
