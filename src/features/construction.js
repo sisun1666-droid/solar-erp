@@ -386,10 +386,14 @@ function openModal(idx = null) {
       <textarea class="field" id="conNext">${esc(c.next||"")}</textarea>
     </div>`;
 
-  // 상태 변경 시 next에 진행상태 자동 삽입
+  // 상태 변경 시 next에 진행상태 자동 삽입 + 상태를 완료로 바꾸면 업무단계도 완료로 맞춰준다
   document.getElementById("conStatus")?.addEventListener("change", e => {
     const next = document.getElementById("conNext");
     if (next) next.value = withStatusLine(next.value, e.target.value);
+    if (e.target.value === "완료") {
+      const phaseSel = document.getElementById("conPhaseModal");
+      if (phaseSel && [...phaseSel.options].some(o => o.value === "완료")) phaseSel.value = "완료";
+    }
   });
 
   // 프로젝트DB 현장을 검색해서 고르면 칩으로 추가하고 입력창을 비워 다음 현장을 이어서 검색할 수 있게 한다.
