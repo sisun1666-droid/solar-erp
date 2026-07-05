@@ -85,9 +85,14 @@ let _saveTimer = null;
 let _svrIds    = {};         // 서버에 있는 ID 추적 (DELETE용)
 let _lastSig     = {};       // 테이블별 마지막 동기화 내용 서명 (변경 감지용)
 let _lastMetaSig = null;
-let _saving = false;         // true인 동안은 syncFromServer가 건너뜀 (저장 중 로컬 값이 서버의 예전 값으로 덮어써지는 것 방지)
+// true인 동안은 syncFromServer가 건너뜀. 로컬 수정이 예약된 순간(debounce 대기 중)부터
+// 서버 업로드가 끝날 때까지 전체 구간을 덮어야 한다 — 저장이 시작되기 전(디바운스 대기 중)에
+// 동기화가 끼어들면, 아직 서버에 없는 로컬 수정을 서버의 예전 값으로 메모리에서부터
+// 덮어써버려서 그 다음 디바운스 저장이 그 오염된 값을 그대로 재업로드하게 된다.
+let _saving = false;
 
 function scheduleSave() {
+  _saving = true;
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(flushSave, 800);
 }
@@ -95,9 +100,8 @@ function scheduleSave() {
 async function flushSave() {
   _saveTimer = null;
   const tables = Object.keys(_pending);
-  if (!tables.length && !_configDirty && !_tombsDirty) return;
+  if (!tables.length && !_configDirty && !_tombsDirty) { _saving = false; return; }
   _pending = {};
-  _saving = true;
   emit("saveStart");
 
   saveLocal();
