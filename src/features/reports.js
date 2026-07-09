@@ -5,6 +5,7 @@ let _reportTab = "as";
 let _beforePhotos = [], _afterPhotos = [], _genericPhotos = [];
 let _reportMonth = today().slice(0, 7);
 let _issues = [];
+let _issueTitle = "구조물 이슈 점검 보고서";
 
 function printHtml(html, title) {
   const win = window.open("", "_blank");
@@ -144,7 +145,7 @@ function renderIssuePreview() {
     <div style="width:720px;border:1px solid #ddd;padding:16px 18px;background:#fff;font-size:13px">
       <div style="border-bottom:3px solid #111;padding-bottom:7px;margin-bottom:12px">
         <div style="font-size:10px;font-weight:700;color:#555;letter-spacing:.5px">기술지원팀</div>
-        <h2 style="margin:0;font-size:18px;font-weight:900">구조물 이슈 점검 보고서</h2>
+        <h2 style="margin:0;font-size:18px;font-weight:900">${esc(_issueTitle || "구조물 이슈 점검 보고서")}</h2>
       </div>
       ${_issues.map((it, i) => `
         <div style="border:1px solid #ccc;margin-bottom:10px">
@@ -230,7 +231,7 @@ function saveCurrentReport() {
   const tabLabel = { as: "A/S 보고서", monthly: "시공월별보고서", generic: "기타 보고서", issue: "구조물 이슈 점검 보고서" };
   const meta = _reportTab === "monthly" ? _reportMonth
     : _reportTab === "as" ? ($("as-site")?.value || $("as-client")?.value || "")
-    : _reportTab === "issue" ? (_issues[0]?.title || `이슈 ${_issues.length}건`)
+    : _reportTab === "issue" ? (_issueTitle || `이슈 ${_issues.length}건`)
     : ($("gen-title")?.value || "");
   const reports = [
     { id: genId("report"), type: _reportTab, typeLabel: tabLabel[_reportTab], meta, savedAt: today(), html },
@@ -316,7 +317,11 @@ function renderReportForm() {
   } else if (_reportTab === "issue") {
     if (!_issues.length) _issues.push({ id: genId("issue"), title: "", category: "", risk: "상", urgency: "2", status: "조치 필요", desc: "", photo: "" });
     formEl.innerHTML = `
-      <div style="display:grid;gap:14px">
+      <div>
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px">보고서 제목</label>
+        <input class="field" id="issueReportTitle" value="${esc(_issueTitle)}" style="width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:grid;gap:14px;margin-top:10px">
         ${_issues.map((it, i) => `
           <div style="border:1px solid #ddd;border-radius:8px;padding:10px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -337,14 +342,18 @@ function renderReportForm() {
               </select>
               <textarea class="field issue-field" data-issue="${it.id}" data-key="desc" placeholder="현상 설명 (줄바꿈으로 구분)" style="grid-column:1/-1;min-height:56px">${esc(it.desc)}</textarea>
             </div>
-            <label class="issue-drop" data-issue-drop="${it.id}" style="display:block;margin-top:8px;border:2px dashed #b8c8cf;border-radius:8px;padding:10px;text-align:center;cursor:pointer;background:#fbfdfe">
-              <div style="font-size:11px;color:var(--muted)">${it.photo ? "사진 1장 첨부됨 (클릭 또는 드래그로 교체)" : "사진을 드래그하거나 클릭해서 첨부"}</div>
-              <input type="file" accept="image/*" data-issue-photo="${it.id}" style="display:none">
-            </label>
+            <div style="display:grid;grid-template-columns:${it.photo ? "1fr auto" : "1fr"};gap:6px;margin-top:8px">
+              <label class="issue-drop" data-issue-drop="${it.id}" style="display:block;border:2px dashed #b8c8cf;border-radius:8px;padding:10px;text-align:center;cursor:pointer;background:#fbfdfe">
+                <div style="font-size:11px;color:var(--muted)">${it.photo ? "사진 1장 첨부됨 (클릭 또는 드래그로 교체)" : "사진을 드래그하거나 클릭해서 첨부"}</div>
+                <input type="file" accept="image/*" data-issue-photo="${it.id}" style="display:none">
+              </label>
+              ${it.photo ? `<button class="btn" data-remove-photo="${it.id}" style="font-size:11px">사진 삭제</button>` : ""}
+            </div>
           </div>`).join("")}
         <button class="btn" id="addIssueBtn">+ 이슈 추가</button>
       </div>`;
 
+    $("issueReportTitle")?.addEventListener("input", e => { _issueTitle = e.target.value; updateReportPreview(); });
     formEl.querySelectorAll(".issue-field").forEach(el => el.addEventListener("input", e => {
       const it = _issues.find(x => x.id === e.target.dataset.issue);
       if (it) { it[e.target.dataset.key] = e.target.value; updateReportPreview(); }
@@ -352,6 +361,10 @@ function renderReportForm() {
     formEl.querySelectorAll("[data-remove-issue]").forEach(btn => btn.addEventListener("click", () => {
       _issues = _issues.filter(x => x.id !== btn.dataset.removeIssue);
       renderReportForm(); updateReportPreview();
+    }));
+    formEl.querySelectorAll("[data-remove-photo]").forEach(btn => btn.addEventListener("click", () => {
+      const it = _issues.find(x => x.id === btn.dataset.removePhoto);
+      if (it) { it.photo = ""; renderReportForm(); updateReportPreview(); }
     }));
     $("addIssueBtn")?.addEventListener("click", () => {
       _issues.push({ id: genId("issue"), title: "", category: "", risk: "상", urgency: "2", status: "조치 필요", desc: "", photo: "" });
