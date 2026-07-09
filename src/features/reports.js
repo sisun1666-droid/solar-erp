@@ -4,6 +4,7 @@ import { today, esc, $, genId, toast } from "../utils/index.js";
 let _reportTab = "as";
 let _beforePhotos = [], _afterPhotos = [], _genericPhotos = [];
 let _reportMonth = today().slice(0, 7);
+let _issues = [];
 
 function printHtml(html, title) {
   const win = window.open("", "_blank");
@@ -137,6 +138,38 @@ function renderGenericPreview() {
     </div>`;
 }
 
+function renderIssuePreview() {
+  const riskColor = { "상": "#d84a38", "중": "#e0932c", "하": "#2f9e57" };
+  return `
+    <div style="width:720px;border:1px solid #ddd;padding:16px 18px;background:#fff;font-size:13px">
+      <div style="border-bottom:3px solid #111;padding-bottom:7px;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;color:#555;letter-spacing:.5px">기술지원팀</div>
+        <h2 style="margin:0;font-size:18px;font-weight:900">구조물 이슈 점검 보고서</h2>
+      </div>
+      ${_issues.map((it, i) => `
+        <div style="border:1px solid #ccc;margin-bottom:10px">
+          <div style="display:grid;grid-template-columns:32px 1fr auto;align-items:center;border-bottom:1px solid #ccc">
+            <div style="background:#333;color:#fff;text-align:center;font-weight:900;padding:6px 0">${i + 1}</div>
+            <div style="padding:6px 8px;font-weight:700">${esc(it.title || "(제목 없음)")}</div>
+            <div style="padding:6px 8px;text-align:right;font-size:11px">
+              위험도: <strong style="color:${riskColor[it.risk] || "#333"}">${esc(it.risk || "-")}</strong><br>${esc(it.status || "-")}
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr 80px 1fr;font-size:11px;border-bottom:1px solid #ddd">
+            <div style="padding:5px 8px;background:#f5f5f5;font-weight:700">분 류</div><div style="padding:5px 8px">${esc(it.category || "-")}</div>
+            <div style="padding:5px 8px;background:#f5f5f5;font-weight:700">긴 급 도</div><div style="padding:5px 8px">${"★".repeat(Number(it.urgency) || 0)}${"☆".repeat(3 - (Number(it.urgency) || 0))}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:220px 1fr">
+            <div style="padding:8px;border-right:1px solid #ddd">
+              ${it.photo ? `<img src="${it.photo}" style="width:100%;height:150px;object-fit:cover">` : `<div style="height:150px;background:#f8f8f8;text-align:center;line-height:150px;font-size:11px;color:#aaa">사진 없음</div>`}
+            </div>
+            <div style="padding:8px;font-size:12px;white-space:pre-wrap">${esc(it.desc || "")}</div>
+          </div>
+        </div>`).join("")}
+      ${!_issues.length ? `<div style="color:#aaa;text-align:center;padding:20px">이슈를 추가해주세요.</div>` : ""}
+    </div>`;
+}
+
 // ponytail: dashboard.js의 smallBar와 같은 패턴 — 뷰 소유 파일 간 교차 import를 피하려고 8줄 복제.
 // 3번째 소비자가 생기면 utils로 옮길 것.
 function statSmallBar(label, val, total, color = "#0d9488") {
@@ -194,9 +227,10 @@ function renderStats() {
 function saveCurrentReport() {
   const html = $("reportPreview")?.innerHTML || "";
   if (!html) { toast("저장할 내용이 없습니다."); return; }
-  const tabLabel = { as: "A/S 보고서", monthly: "시공월별보고서", generic: "기타 보고서" };
+  const tabLabel = { as: "A/S 보고서", monthly: "시공월별보고서", generic: "기타 보고서", issue: "구조물 이슈 점검 보고서" };
   const meta = _reportTab === "monthly" ? _reportMonth
     : _reportTab === "as" ? ($("as-site")?.value || $("as-client")?.value || "")
+    : _reportTab === "issue" ? (_issues[0]?.title || `이슈 ${_issues.length}건`)
     : ($("gen-title")?.value || "");
   const reports = [
     { id: genId("report"), type: _reportTab, typeLabel: tabLabel[_reportTab], meta, savedAt: today(), html },
@@ -212,6 +246,7 @@ function updateReportPreview() {
   if (_reportTab === "as")      preEl.innerHTML = renderAsPreview();
   if (_reportTab === "monthly") preEl.innerHTML = renderMonthlyPreview();
   if (_reportTab === "generic") preEl.innerHTML = renderGenericPreview();
+  if (_reportTab === "issue")   preEl.innerHTML = renderIssuePreview();
 }
 
 function renderReportForm() {
@@ -278,6 +313,65 @@ function renderReportForm() {
       <div style="margin-top:10px;font-size:12px;color:var(--muted)">시공일정 데이터를 기준으로 자동 생성됩니다.</div>`;
     $("reportMonth")?.addEventListener("change", e => { _reportMonth = e.target.value; updateReportPreview(); });
 
+  } else if (_reportTab === "issue") {
+    if (!_issues.length) _issues.push({ id: genId("issue"), title: "", category: "", risk: "상", urgency: "2", status: "조치 필요", desc: "", photo: "" });
+    formEl.innerHTML = `
+      <div style="display:grid;gap:14px">
+        ${_issues.map((it, i) => `
+          <div style="border:1px solid #ddd;border-radius:8px;padding:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <strong style="font-size:12px">이슈 ${i + 1}</strong>
+              <button class="btn" data-remove-issue="${it.id}" style="padding:2px 8px;font-size:11px">삭제</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <input class="field issue-field" data-issue="${it.id}" data-key="title" placeholder="제목" value="${esc(it.title)}" style="grid-column:1/-1">
+              <input class="field issue-field" data-issue="${it.id}" data-key="category" placeholder="분류 (예: 구조물)" value="${esc(it.category)}">
+              <select class="field issue-field" data-issue="${it.id}" data-key="status">
+                ${["조치 필요","단기 조치","즉시 조치","조치완료"].map(s => `<option ${it.status === s ? "selected" : ""}>${s}</option>`).join("")}
+              </select>
+              <select class="field issue-field" data-issue="${it.id}" data-key="risk">
+                ${["상","중","하"].map(s => `<option ${it.risk === s ? "selected" : ""}>${s}</option>`).join("")}
+              </select>
+              <select class="field issue-field" data-issue="${it.id}" data-key="urgency">
+                ${[1,2,3].map(n => `<option value="${n}" ${Number(it.urgency) === n ? "selected" : ""}>${"★".repeat(n)}</option>`).join("")}
+              </select>
+              <textarea class="field issue-field" data-issue="${it.id}" data-key="desc" placeholder="현상 설명 (줄바꿈으로 구분)" style="grid-column:1/-1;min-height:56px">${esc(it.desc)}</textarea>
+            </div>
+            <label class="issue-drop" data-issue-drop="${it.id}" style="display:block;margin-top:8px;border:2px dashed #b8c8cf;border-radius:8px;padding:10px;text-align:center;cursor:pointer;background:#fbfdfe">
+              <div style="font-size:11px;color:var(--muted)">${it.photo ? "사진 1장 첨부됨 (클릭 또는 드래그로 교체)" : "사진을 드래그하거나 클릭해서 첨부"}</div>
+              <input type="file" accept="image/*" data-issue-photo="${it.id}" style="display:none">
+            </label>
+          </div>`).join("")}
+        <button class="btn" id="addIssueBtn">+ 이슈 추가</button>
+      </div>`;
+
+    formEl.querySelectorAll(".issue-field").forEach(el => el.addEventListener("input", e => {
+      const it = _issues.find(x => x.id === e.target.dataset.issue);
+      if (it) { it[e.target.dataset.key] = e.target.value; updateReportPreview(); }
+    }));
+    formEl.querySelectorAll("[data-remove-issue]").forEach(btn => btn.addEventListener("click", () => {
+      _issues = _issues.filter(x => x.id !== btn.dataset.removeIssue);
+      renderReportForm(); updateReportPreview();
+    }));
+    $("addIssueBtn")?.addEventListener("click", () => {
+      _issues.push({ id: genId("issue"), title: "", category: "", risk: "상", urgency: "2", status: "조치 필요", desc: "", photo: "" });
+      renderReportForm(); updateReportPreview();
+    });
+    formEl.querySelectorAll("[data-issue-photo]").forEach(input => input.addEventListener("change", async e => {
+      const it = _issues.find(x => x.id === e.target.dataset.issuePhoto);
+      if (it && e.target.files[0]) { it.photo = await photoDataUrl(e.target.files[0]); renderReportForm(); updateReportPreview(); }
+    }));
+    formEl.querySelectorAll("[data-issue-drop]").forEach(zone => {
+      zone.addEventListener("dragover", e => { e.preventDefault(); zone.style.background = "#eef6f5"; });
+      zone.addEventListener("dragleave", () => { zone.style.background = "#fbfdfe"; });
+      zone.addEventListener("drop", async e => {
+        e.preventDefault(); zone.style.background = "#fbfdfe";
+        const file = e.dataTransfer.files[0];
+        const it = _issues.find(x => x.id === zone.dataset.issueDrop);
+        if (it && file) { it.photo = await photoDataUrl(file); renderReportForm(); updateReportPreview(); }
+      });
+    });
+
   } else {
     const fields = [
       ["보고서 제목","title"],["작성일","date"],["작성자","reporter"],
@@ -321,8 +415,8 @@ function renderReports() {
   const el = $("reportsView");
   if (!el) return;
 
-  const tabLabel = { as:"A/S 보고서", monthly:"시공월별보고서", generic:"기타 보고서", stats:"통계" };
-  const printLabel = { as:"보고서 인쇄", monthly:"A4 출력", generic:"A4 출력" };
+  const tabLabel = { as:"A/S 보고서", monthly:"시공월별보고서", generic:"기타 보고서", issue:"구조물 이슈 점검", stats:"통계" };
+  const printLabel = { as:"보고서 인쇄", monthly:"A4 출력", generic:"A4 출력", issue:"A4 출력" };
 
   if (_reportTab === "stats") {
     el.innerHTML = `
