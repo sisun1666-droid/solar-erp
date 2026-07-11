@@ -211,14 +211,14 @@ function renderTable(panel) {
       <table class="con-table">
         <thead>
           <tr>
-            <th>${sortHead("site","현장")}</th>
-            <th>${sortHead("customer","고객")}</th>
-            <th class="num">용량</th>
-            <th>${sortHead("phase","업무단계")}</th>
-            <th>${sortHead("owner","담당")}</th>
-            <th>기간</th>
-            <th>${sortHead("status","상태")}</th>
-            <th>허가현황</th>
+            <th style="width:15%">${sortHead("site","현장")}</th>
+            <th style="width:9%">${sortHead("customer","고객")}</th>
+            <th class="num" style="width:7%">용량</th>
+            <th style="width:8%">${sortHead("phase","업무단계")}</th>
+            <th style="width:7%">${sortHead("owner","담당")}</th>
+            <th style="width:11%">기간</th>
+            <th style="width:7%">${sortHead("status","상태")}</th>
+            <th style="width:28%">허가현황</th>
             <th style="width:60px">관리</th>
           </tr>
         </thead>
@@ -242,7 +242,7 @@ function renderTable(panel) {
               <div class="meta">${durationDays(c.start, c.end)}일</div>
             </td>
             <td>${statusBadge(c.status)}</td>
-            <td style="max-width:220px">${permitStatusCell(c)}</td>
+            <td style="white-space:normal;overflow:visible">${permitStatusCell(c)}</td>
             <td><button class="btn icon" data-con-edit="${c._i}">수정</button></td>
           </tr>`;
           }).join("")}
