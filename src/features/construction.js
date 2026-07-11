@@ -119,22 +119,23 @@ function ensureConstructionShell(panel) {
 }
 
 // 상단 요약 스트립 — 한눈에 전체 현황을 파악하도록 상태별 건수만 보여준다.
+// 각 카드는 클릭하면 해당 상태만 모아 보여주는 팝업을 연다 (renderPlantRows/openStatusModal 참고).
 function renderSummary(list) {
   const el = document.getElementById("conSummary");
   if (!el) return;
   const count = s => list.filter(c => c.status === s).length;
   const items = [
-    { label: "전체",   n: list.length, cls: "" },
-    { label: "시공중", n: count("시공중"), cls: "blue" },
-    { label: "예정",   n: count("예정"),  cls: "amber" },
-    { label: "지연",   n: count("지연"),  cls: "red" },
-    { label: "완료",   n: count("완료"),  cls: "green" },
+    { label: "전체",   n: list.length, cls: "", status: "" },
+    { label: "시공중", n: count("시공중"), cls: "blue",  status: "시공중" },
+    { label: "예정",   n: count("예정"),  cls: "amber", status: "예정" },
+    { label: "지연",   n: count("지연"),  cls: "red",   status: "지연" },
+    { label: "완료",   n: count("완료"),  cls: "green", status: "완료" },
   ];
   el.innerHTML = items.map(it => `
-    <div class="con-summary-item ${it.cls}">
+    <button type="button" class="con-summary-item ${it.cls}" data-con-status="${esc(it.status)}">
       <span class="con-summary-n">${it.n}</span>
       <span class="con-summary-label">${esc(it.label)}</span>
-    </div>`).join("");
+    </button>`).join("");
 }
 
 function renderTable(panel) {
@@ -184,7 +185,7 @@ function renderTable(panel) {
         </div>
       </div>` : ""}
     ${hiddenDoneCount ? `<div class="meta" style="margin-bottom:8px">완료 ${hiddenDoneCount}건 숨김 (체크박스 해제 시 표시)</div>` : ""}
-    <div class="table-wrap">
+    <div class="table-wrap con-table-wrap">
       <table class="con-table">
         <thead>
           <tr>
@@ -224,46 +225,50 @@ function renderTable(panel) {
           ${rows.length === 0 ? `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">시공일정이 없습니다.</td></tr>` : ""}
         </tbody>
       </table>
-    </div>
-    <div class="grid con-plant-grid" style="margin-top:16px;grid-template-columns:1fr 1fr">
-      <div class="panel">
-        <div class="panel-title"><h2 class="label">시공중</h2></div>
-        <div id="conCurrentPlants" class="con-plant-list"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-title"><h2 class="label">시공 예정</h2></div>
-        <div id="conUpcomingPlants" class="con-plant-list"></div>
-      </div>
     </div>`;
-
-  renderPlantCards();
 }
 
-function renderPlantCards() {
+// 시공일정 한 건을 리스트 행으로 그린다 — 요약 카드 팝업(openStatusModal)에서 재사용.
+function plantRow(c, i) {
+  return `<div class="con-plant-row">
+    <div class="con-plant-main">
+      <span class="name">${esc(c.site)}</span>
+      <span class="meta">${esc(c.company)} · <span class="num">${esc(c.kw)}kW</span> · ${esc(c.customer||"고객")}</span>
+      <span class="meta">${esc(c.phase)} · ${esc(c.owner||"담당 미입력")} · ${fmtDate(c.start)} ~ ${fmtDate(c.end||"")}</span>
+    </div>
+    <div class="con-plant-side">
+      ${statusBadge(c.status)}
+      <button class="btn icon" data-con-edit="${i}">수정</button>
+    </div>
+  </div>`;
+}
+
+// 요약 카드를 눌렀을 때: 해당 상태(빈 문자열이면 전체)만 모아 팝업으로 보여준다.
+function openStatusModal(status) {
   const st = getState();
   const con = st.construction || [];
-  const current  = con.filter(c => c.status === "시공중");
-  const upcoming = con.filter(c => c.status === "예정");
+  const list = (status ? con.filter(c => c.status === status) : con)
+    .slice()
+    .sort((a, b) => statusRank(a.status) - statusRank(b.status) || String(a.site || "").localeCompare(String(b.site || ""), "ko"));
 
-  function plantCard(c) {
-    const i = con.indexOf(c);
-    return `<div class="con-plant-row">
-      <div class="con-plant-main">
-        <span class="name">${esc(c.site)}</span>
-        <span class="meta">${esc(c.company)} · <span class="num">${esc(c.kw)}kW</span> · ${esc(c.customer||"고객")}</span>
-        <span class="meta">${esc(c.phase)} · ${esc(c.owner||"담당 미입력")} · ${fmtDate(c.start)} ~ ${fmtDate(c.end||"")}</span>
-      </div>
-      <div class="con-plant-side">
-        ${statusBadge(c.status)}
-        <button class="btn icon" data-con-edit="${i}">수정</button>
-      </div>
-    </div>`;
+  const title = document.getElementById("conStatusModalTitle");
+  if (title) title.textContent = `${status || "전체"} · ${list.length}건`;
+
+  const body = document.getElementById("conStatusModalBody");
+  if (body) {
+    body.innerHTML = list.length
+      ? list.map(c => plantRow(c, con.indexOf(c))).join("")
+      : `<div class="meta" style="padding:20px 4px;text-align:center">해당하는 현장이 없습니다.</div>`;
   }
+  const m = document.getElementById("conStatusModal");
+  m?.classList.remove("hidden");
+  m?.classList.add("open");
+}
 
-  const cur = document.getElementById("conCurrentPlants");
-  if (cur) cur.innerHTML = current.length ? current.map(plantCard).join("") : `<div class="meta">시공중인 현장 없음</div>`;
-  const up  = document.getElementById("conUpcomingPlants");
-  if (up)  up.innerHTML  = upcoming.length ? upcoming.map(plantCard).join("") : `<div class="meta">시공 예정 현장 없음</div>`;
+function closeStatusModal() {
+  const m = document.getElementById("conStatusModal");
+  m?.classList.remove("open");
+  m?.classList.add("hidden");
 }
 
 // ── 모달 ────────────────────────────────────────────────────────────────────
@@ -525,10 +530,12 @@ function onDocClick(e) {
   const t = e.target.closest("button,.cell-link") || e.target;
   const inView = document.getElementById("constructionView")?.contains(t);
   const inModal = document.getElementById("constructionModal")?.contains(t);
-  if (!inView && !inModal) return;
+  const inStatusModal = document.getElementById("conStatusModal")?.contains(t);
+  if (!inView && !inModal && !inStatusModal) return;
 
   if (t.id === "conAddBtn")           { openModal(); return; }
-  if (t.dataset.conEdit !== undefined){ openModal(Number(t.dataset.conEdit)); return; }
+  if (t.dataset.conStatus !== undefined) { openStatusModal(t.dataset.conStatus); return; }
+  if (t.dataset.conEdit !== undefined){ closeStatusModal(); openModal(Number(t.dataset.conEdit)); return; }
   if (t.dataset.conNewFromProject)    { openConstructionForProject(t.dataset.conNewFromProject); return; }
   if (t.id === "saveConstructionBtn") { saveModal(); return; }
   if (t.id === "deleteConstructionBtn"){ deleteItem(); return; }

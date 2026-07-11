@@ -359,9 +359,10 @@
 @media(max-width:980px){#mainGrid.construction-mode{grid-template-columns:1fr;height:auto;overflow:visible}}
 
 /* ── 시공일정 리모델링: 사무적/스캔하기 쉬운 스타일 ── */
-/* 상단 요약 스트립 — 상태별 건수를 한눈에 */
+/* 상단 요약 스트립 — 상태별 건수를 한눈에, 클릭하면 해당 상태만 모아 팝업으로 */
 .con-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}
-.con-summary-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:2px}
+.con-summary-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:2px;font:inherit;text-align:left;cursor:pointer;transition:.12s}
+.con-summary-item:hover{background:var(--bg);transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.06)}
 .con-summary-item.blue{border-left-color:var(--blue)}
 .con-summary-item.amber{border-left-color:var(--amber)}
 .con-summary-item.red{border-left-color:var(--red)}
@@ -376,6 +377,8 @@
 .con-table tr.con-row-late td{background:rgba(239,68,68,.05)}
 .con-table tr.con-row-late td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 .con-table tr.con-row-active td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+/* 표가 길어져도 페이지 전체가 늘어지지 않도록 표 안에서만 스크롤 */
+.con-table-wrap{max-height:min(58vh,620px);overflow:auto}
 
 /* 시공 등록 대기 — 카드 대신 얇은 리스트 행으로 정리 */
 .con-candidate-list{display:grid;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -385,7 +388,7 @@
 .con-candidate-info .name{font-size:13px}
 .con-candidate-info .meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* 시공중/시공 예정 패널 — 카드 그리드 대신 조용한 리스트 */
+/* 요약 카드 팝업 안의 현황 리스트 — 조용한 리스트 행 (plantRow에서 재사용) */
 .con-plant-list{display:grid;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .con-plant-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--panel)}
 .con-plant-row+.con-plant-row{border-top:1px solid var(--line)}
@@ -393,11 +396,16 @@
 .con-plant-main .name{font-size:13px}
 .con-plant-side{display:flex;align-items:center;gap:8px;flex-shrink:0}
 
+/* 시공일정 현황 팝업 모달 */
+.con-status-modal{width:min(560px,100%);max-height:80vh;display:flex;flex-direction:column;padding:0}
+.con-status-modal .modal-head{padding:18px 18px 12px;flex-shrink:0}
+#conStatusModalBody{overflow-y:auto;padding:0 18px 18px}
+
 @media(max-width:760px){
   .con-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .con-plant-grid{grid-template-columns:1fr!important}
   .con-candidate-row,.con-plant-row{flex-wrap:wrap}
   .con-plant-side{margin-left:auto}
+  .con-table-wrap{max-height:52vh}
 }
 @media(max-width:620px){
   .con-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
