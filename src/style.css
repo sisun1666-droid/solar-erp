@@ -1,11 +1,12 @@
-﻿/* ======== Block 1 ======== */
+﻿/* ======== Design tokens (consolidated) ======== */
 :root{
-  --bg:#e5e5ea;--panel:#ffffff;--ink:#1d1d1f;--muted:#6e6e73;--line:#d2d2d7;
-  --teal:#0d9488;--teal-light:#f0fdfa;--red:#ef4444;--amber:#f59e0b;--green:#10b981;--blue:#3b82f6;
+  --bg:#e5e5ea;--panel:#ffffff;--ink:#17252b;--muted:#6b7674;--line:#dadfda;
+  --teal:#0d9488;--teal-dark:#0f766e;--teal-light:#f0fdfa;
+  --red:#ef4444;--amber:#f59e0b;--green:#10b981;--blue:#3b82f6;
   --nav-bg:#0a1f1a;--nav-text:#7bbcaa;--nav-active:#f8fafc;
-  --shadow:0 2px 8px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --shadow-lg:0 8px 28px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.06);
-  --radius:20px;--radius-lg:28px
+  --shadow:0 1px 3px rgba(15,23,20,.07),0 1px 2px rgba(15,23,20,.04);
+  --shadow-lg:0 10px 30px rgba(15,23,20,.12),0 2px 8px rgba(15,23,20,.05);
+  --radius:16px;--radius-lg:22px
 }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Noto Sans KR","Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased}
@@ -25,7 +26,7 @@
     .nav-btn span:first-child{width:18px;text-align:center;font-size:15px;opacity:.85}
     /* ── 메인 ── */
     main{padding:28px 32px 48px;min-width:0;background:var(--bg)}
-    header{display:flex;justify-content:space-between;gap:16px;margin-bottom:16px;align-items:flex-start}
+    header{display:flex;justify-content:space-between;gap:16px;margin-bottom:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 20px}
     h1{font-size:28px;margin:0 0 4px;font-weight:700;letter-spacing:-1px;color:var(--ink)}
     h2{font-size:15px;margin:0;font-weight:600;letter-spacing:-.3px}
     .sub,.meta{color:var(--muted);font-size:13px;line-height:1.5;letter-spacing:-.1px}
@@ -69,9 +70,10 @@
     /* ── 테이블 ── */
     .table-wrap{overflow:auto}
     table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;min-width:900px}
-    th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    th{color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;background:var(--bg)}
-    tr:hover td{background:var(--bg)}
+    th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    th{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:var(--panel);border-bottom:2px solid var(--line);position:sticky;top:0;z-index:1}
+    tbody tr:nth-child(even) td{background:rgba(0,0,0,.015)}
+    tr:hover td{background:var(--teal-light)}
     .column-filter{width:100%;height:30px;border:1px solid var(--line);border-radius:6px;padding:0 8px;background:#fff;font-size:12px}
     .filter-row th{padding:4px 6px 8px;background:var(--bg)}
     .sort-head{width:100%;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-align:left;padding:0;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
@@ -148,7 +150,6 @@
     .calendar-task.pastel-blue{background:#eaf2ff}.calendar-task.pastel-amber{background:#fff2d9}.calendar-task.pastel-pink{background:#f9e7f5}.calendar-task.pastel-green{background:#e9f7e8}.calendar-task.pastel-red{background:#ffe2e2}
     #assignmentCalendarPanel .calendar-task{cursor:pointer;transition:transform .12s,box-shadow .12s}
     #assignmentCalendarPanel .calendar-task:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(25,55,70,.12)}
-    .schedule-page header{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 20px;box-shadow:var(--shadow)}
     .schedule-page header .toolbar{display:none}
     #mainGrid.schedule-mode{grid-template-columns:1fr;height:auto;overflow:visible}
     #mainGrid.schedule-mode>.panel{height:auto;min-height:0}
@@ -273,12 +274,12 @@
     .dash-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
     .dash-kpi-grid.small{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:10px}
     .dash-kpi-grid .dash-section{box-shadow:none}
-    .dash-kpi-card{text-align:center;padding:24px 18px 20px;position:relative;overflow:hidden;border:0!important;border-radius:28px!important;transition:.2s;box-shadow:none!important}
-    .dash-kpi-card:hover{transform:translateY(-1px)}
-    .dash-kpi-card.kpi-teal{background:linear-gradient(145deg,#d1fae5,#a7f3d0)!important}
-    .dash-kpi-card.kpi-red{background:linear-gradient(145deg,#ffe4e6,#fecdd3)!important}
-    .dash-kpi-card.kpi-amber{background:linear-gradient(145deg,#fef3c7,#fde68a)!important}
-    .dash-kpi-card.kpi-blue{background:linear-gradient(145deg,#dbeafe,#bfdbfe)!important}
+    .dash-kpi-card{text-align:center;padding:20px 18px;position:relative;overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);box-shadow:var(--shadow);transition:.2s;border-top:3px solid transparent}
+    .dash-kpi-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+    .dash-kpi-card.kpi-teal{border-top-color:var(--teal)}
+    .dash-kpi-card.kpi-red{border-top-color:var(--red)}
+    .dash-kpi-card.kpi-amber{border-top-color:var(--amber)}
+    .dash-kpi-card.kpi-blue{border-top-color:var(--blue)}
     .kpi-icon{font-size:28px;margin-bottom:8px;line-height:1;opacity:.85}
     .kpi-value{font-size:40px;font-weight:700;line-height:1;letter-spacing:-2px;color:#1d1d1f}
     .kpi-value small{font-size:20px;font-weight:600;color:#474747}
@@ -582,281 +583,20 @@ body.todo-page{overflow-y:auto}
         }
       }
 
-/* ======== Block 3 - id="erpSoftTheme" ======== */
-:root{
-        --ink:#17252b;
-        --muted:#71806f;
-        --line:#e3e9e3;
-        --teal-dark:#0f766e;
-        --soft-mint:#ecfdf5;
-        --soft-yellow:#fff8cf;
-        --shadow:0 18px 45px rgba(45,10,28,.08);
-      }
-      body{
-        background:
-          radial-gradient(circle at 4% 4%,rgba(13,148,136,.07),transparent 28%),
-          linear-gradient(180deg,#fbfdfb 0%,#f4f8f5 100%);
-      }
-      .app{
-        grid-template-columns:256px minmax(0,1fr);
-      }
-      aside{
-        position:sticky;
-        top:0;
-        min-height:100vh;
-        background:rgba(255,255,255,.78);
-        backdrop-filter:blur(16px);
-        border-right:1px solid rgba(207,219,211,.78);
-        padding:22px 18px;
-        box-shadow:8px 0 28px rgba(45,10,28,.04);
-      }
-      aside nav a[data-nav].active{
-        background:linear-gradient(135deg,var(--teal),var(--teal-dark));
-        color:#fff;
-      }
-      aside .brand{
-        min-height:54px;
-        margin-bottom:20px;
-        padding:8px 10px;
-        border-radius:18px;
-        background:rgba(255,255,255,.72);
-      }
-      aside .mark{
-        display:none;
-      }
-      .brand-text{
-        color:var(--muted);
-        font-size:13px;
-      }
-      nav{
-        gap:9px;
-      }
-      .nav-btn{
-        min-height:46px;
-        padding:0 15px;
-        border-radius:18px;
-        color:#54635b;
-        background:transparent;
-        transition:background .16s ease,transform .16s ease,box-shadow .16s ease,color .16s ease;
-      }
-      .nav-btn span:first-child{
-        width:24px;
-        display:inline-grid;
-        place-items:center;
-        color:#0d9488;
-        font-weight:900;
-      }
-      .nav-btn:hover{
-        background:#ecfdf5;
-        color:#4a0a2a;
-        transform:translateX(2px);
-      }
-      .nav-btn.active{
-        background:linear-gradient(135deg,var(--teal),var(--teal-dark));
-        color:#fff;
-        box-shadow:0 12px 28px rgba(13,148,136,.24);
-      }
-      .nav-btn.active span:first-child{
-        color:#fff;
-      }
-      main{
-        padding:30px 34px 48px;
-      }
-      header{
-        position:relative;
-        align-items:center;
-        margin-bottom:22px;
-        padding:24px 28px;
-        border:1px solid rgba(223,231,224,.9);
-        border-radius:28px;
-        background:rgba(255,255,255,.76);
-        box-shadow:var(--shadow);
-        overflow:hidden;
-      }
-      header:before{
-        content:"";
-        position:absolute;
-        inset:0;
-        background:linear-gradient(90deg,rgba(253,242,248,.92),rgba(255,255,255,.64) 48%,rgba(255,248,207,.34));
-        z-index:-1;
-      }
-      h1{
-        font-size:28px;
-        letter-spacing:0;
-      }
-      h2{
-        font-size:18px;
-      }
-      .sub,.meta{
-        color:#728075;
-      }
-      .header-actions{
-        gap:8px;
-      }
-      .login-info{
-        border-color:#6ee7b7;
-        background:#ecfdf5;
-        color:#0f766e;
-        border-radius:999px;
-        box-shadow:none;
-      }
-      .btn,.tab-btn{
-        border-color:#dfe8e1;
-        border-radius:999px;
-        background:#fff;
-        box-shadow:0 5px 14px rgba(45,10,28,.04);
-      }
-      .btn.primary,.tab-btn.active{
-        background:linear-gradient(135deg,var(--teal),var(--teal-dark));
-        border-color:transparent;
-        color:#fff;
-        box-shadow:0 10px 24px rgba(13,148,136,.18);
-      }
-      .btn:hover,.tab-btn:hover{
-        transform:translateY(-1px);
-      }
-      .panel,.card,.kpi,.modal{
-        border-color:#e3ebe5;
-        border-radius:22px;
-        box-shadow:var(--shadow);
-      }
-      .panel{
-        padding:20px;
-      }
-      .panel-title{
-        margin-bottom:16px;
-      }
-      .search,.field,select,textarea{
-        border-color:#dfe9e3;
-        border-radius:14px;
-        background:#fff;
-      }
-      .search:focus,.field:focus,select:focus,textarea:focus{
-        outline:3px solid rgba(13,148,136,.13);
-        border-color:#6ee7b7;
-      }
-      .badge{
-        border-radius:999px;
-      }
-      #sharedNotice{
-        border-color:#a7f3d0!important;
-        background:#ecfdf5!important;
-        border-radius:22px!important;
-      }
-      body.todo-page header{
-        background:rgba(255,255,255,.8);
-        border-radius:28px;
-      }
-      body.todo-page #mainGrid>.panel{
-        background:rgba(255,255,255,.84);
-        border-radius:26px;
-      }
-      #todoBoardPanel{
-        gap:18px;
-      }
-      .todo-toolbar{
-        padding:4px 0 2px;
-      }
-      .todo-view{
-        border-color:#dfe9e3;
-        border-radius:999px;
-        background:#fff;
-        padding:4px;
-        box-shadow:0 8px 18px rgba(45,10,28,.05);
-      }
-      .todo-view button{
-        min-height:34px;
-        border-radius:999px;
-        padding:0 16px;
-      }
-      .todo-view button.active{
-        background:linear-gradient(135deg,var(--teal),var(--teal-dark));
-        color:#fff;
-      }
-      .todo-filters{
-        border-color:#dfe9e3;
-        border-radius:24px;
-        background:rgba(255,255,255,.8);
-        box-shadow:0 14px 30px rgba(45,10,28,.06);
-      }
-      .todo-chip{
-        min-height:34px;
-        background:#ecfdf5;
-        color:#5b6b61;
-        border:1px solid transparent;
-      }
-      .todo-chip.active{
-        background:linear-gradient(135deg,var(--teal),var(--teal-dark));
-        color:#fff;
-        box-shadow:0 8px 18px rgba(13,148,136,.16);
-      }
-      .todo-board{
-        gap:12px;
-      }
-      .todo-column{
-        border-radius:16px;
-        padding:12px;
-        box-shadow:0 8px 20px rgba(45,10,28,.05);
-        border-top-width:3px;
-      }
-      .todo-column[data-todo-drop-status="백로그"]{background:rgba(245,243,255,.88);border-color:#c4b5fd;border-top-color:#7c3aed}
-      .todo-column[data-todo-drop-status="할 일"]{background:rgba(255,251,235,.88);border-color:#fcd34d;border-top-color:#f59e0b}
-      .todo-column[data-todo-drop-status="진행중"]{background:rgba(239,246,255,.88);border-color:#93c5fd;border-top-color:#3b82f6}
-      .todo-column[data-todo-drop-status="완료"]{background:rgba(240,253,244,.88);border-color:#86efac;border-top-color:#22c55e}
-      .todo-column[data-todo-drop-status="취소"]{background:rgba(254,242,242,.88);border-color:#fca5a5;border-top-color:#ef4444}
-      .todo-column[data-todo-drop-status="백로그"] .todo-column-head{background:rgba(237,233,254,.9);color:#5b21b6}
-      .todo-column[data-todo-drop-status="할 일"]  .todo-column-head{background:rgba(254,243,199,.9);color:#92400e}
-      .todo-column[data-todo-drop-status="진행중"] .todo-column-head{background:rgba(219,234,254,.9);color:#1e40af}
-      .todo-column[data-todo-drop-status="완료"]   .todo-column-head{background:rgba(220,252,231,.9);color:#15803d}
-      .todo-column[data-todo-drop-status="취소"]   .todo-column-head{background:rgba(254,226,226,.9);color:#991b1b}
-      .todo-column-head{
-        min-height:36px;
-        padding:5px 7px 10px;
-        border-bottom:1px solid rgba(0,0,0,.08);
-        border-radius:7px 7px 0 0;
-      }
-      .todo-column-head .count{
-        display:inline-grid;
-        place-items:center;
-        min-width:28px;
-        min-height:24px;
-        border-radius:999px;
-        background:rgba(0,0,0,.09);
-        color:inherit;
-      }
-      .todo-card{
-        border:1px solid #e8eee8;
-        border-left:4px solid var(--teal);
-        border-radius:12px;
-        background:rgba(255,255,255,.92);
-        box-shadow:0 4px 12px rgba(45,10,28,.06);
-        padding:7px 10px;
-        transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;
-      }
-      .todo-card:hover{
-        transform:translateY(-2px);
-        box-shadow:0 18px 34px rgba(45,10,28,.11);
-      }
-      .todo-card-title{
-        font-size:12.5px;
-      }
-      .todo-card-meta{
-        color:#728075;
-      }
-      .todo-progress-track{
-        background:#edf2ef;
-      }
-      .todo-progress-fill{
-        background:linear-gradient(90deg,var(--teal),#6ee7b7);
-      }
-      @media(max-width:980px){
-        .app{display:block}
-        aside{position:sticky;min-height:0;padding:12px}
-        aside .brand{margin-bottom:8px}
-        main{padding:16px 12px 28px}
-        header{border-radius:22px;padding:18px}
-        .panel{border-radius:18px}
-      }
+/* ======== 할일 칸반 컬럼 상태별 색상 (백로그/할일/진행중/완료/취소) ======== */
+.todo-column[data-todo-drop-status="백로그"]{background:#f4f2fe;border-color:#c4b5fd;border-top-color:#7c3aed}
+.todo-column[data-todo-drop-status="할 일"]{background:#fffaeb;border-color:#fcd34d;border-top-color:#f59e0b}
+.todo-column[data-todo-drop-status="진행중"]{background:#eff6ff;border-color:#93c5fd;border-top-color:#3b82f6}
+.todo-column[data-todo-drop-status="완료"]{background:#f0fdf4;border-color:#86efac;border-top-color:#22c55e}
+.todo-column[data-todo-drop-status="취소"]{background:#fef2f2;border-color:#fca5a5;border-top-color:#ef4444}
+.todo-column[data-todo-drop-status="백로그"] .todo-column-head{background:#ede9fe;color:#5b21b6}
+.todo-column[data-todo-drop-status="할 일"]  .todo-column-head{background:#fef3c7;color:#92400e}
+.todo-column[data-todo-drop-status="진행중"] .todo-column-head{background:#dbeafe;color:#1e40af}
+.todo-column[data-todo-drop-status="완료"]   .todo-column-head{background:#dcfce7;color:#15803d}
+.todo-column[data-todo-drop-status="취소"]   .todo-column-head{background:#fee2e2;color:#991b1b}
+.todo-column-head{border-radius:10px 10px 0 0;padding:6px 8px 10px}
+.todo-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.todo-progress-fill{background:linear-gradient(90deg,var(--teal),#5eead4)}
 
 /* ======== Block 4 - id="fullTextMaskingStyle" ======== */
 body.masking-mode main,
@@ -994,10 +734,8 @@ body.masking-mode main,
             body.report-page #sharedNotice{display:none!important}
             @media(max-width:1050px){.report-shell,.monthly-report-shell{grid-template-columns:1fr}.as-sheet,.monthly-a4{width:100%}}@page{size:A4 portrait;margin:0}@media print{html{height:auto!important;min-height:0!important;overflow:hidden!important}body{height:auto!important;min-height:0!important;overflow:hidden!important;margin:0!important;padding:8mm 10mm!important}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box!important}body>*{display:none!important}body>.print-root{display:block!important}.print-root{display:block!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;overflow:hidden!important}.as-sheet{border:0!important;width:100%!important;min-height:277mm!important;max-height:none!important;box-shadow:none!important;padding:0!important}.monthly-a4{border:0!important;width:100%!important;min-height:0!important;padding:16px 20px!important;box-shadow:none!important}.generic-sheet{border:0!important;width:100%!important;min-height:0!important;padding:16px 20px!important;box-shadow:none!important}.monthly-table{font-size:9.5pt!important}.monthly-table th,.monthly-table td{padding:3px 4px!important;border-color:#888!important;color:#111!important}.monthly-kpi{padding:5px!important}.monthly-kpi strong{font-size:13pt!important;color:#111!important}.monthly-kpi em{color:#118447!important}.monthly-a4 .subtitle,.generic-subtitle{color:#333!important}.monthly-empty{color:#555!important}.as-table{font-size:10.5pt!important}.as-table th,.as-table td{border-color:#888!important;color:#111!important;padding:4px 6px!important}.as-table th{background:#efefef!important;color:#111!important}.as-section-title,[style*="background:#f0f4f7"]{background:#edf2f7!important;color:#1a3a4a!important;font-weight:900!important;border-left:4px solid #1a7a5e!important}.generic-table{font-size:10.5pt!important}.generic-table th,.generic-table td{border-color:#888!important;color:#111!important;padding:5px 7px!important}.generic-table th{background:#efefef!important;color:#111!important}.generic-section-title{background:#efefef!important;color:#111!important;font-weight:900!important}.monthly-profit{color:#118447!important}.monthly-loss{color:#c0392b!important}.as-photo-cell{min-height:100px!important}.as-photo-cell img{height:88px!important;object-fit:cover!important}.as-photo-empty{color:#666!important;min-height:88px!important;font-size:10px!important}.as-sign-row>div{height:48px!important}.monthly-report-controls,.report-form,.report-tabs,.monthly-rate-grid,.monthly-input small{display:none!important}}
 
-/* ======== Block 9 - id="categoryPolishStyle" ======== */
-header{position:relative;overflow:hidden;border-radius:10px;padding:12px 14px;margin:-8px -14px 18px}
-          header:before{content:"";position:absolute;inset:0;border-radius:10px;background:linear-gradient(90deg,#ecfdf5,#f8fbfd 62%,transparent);opacity:.82;z-index:-1}
-          header h1{letter-spacing:0}
+/* ======== header h1 tweak (was categoryPolishStyle) ======== */
+header h1{letter-spacing:0}
 
 /* ======== Block 10 - id="constructionDbStyle" ======== */
 #constructionModal .modal-head{align-items:flex-start;gap:10px}
@@ -1311,10 +1049,7 @@ body {
 [data-theme="dark"] .kpi-value{color:var(--ink)}
 [data-theme="dark"] .kpi-value small{color:var(--muted)}
 [data-theme="dark"] .kpi-label,[data-theme="dark"] .kpi-delta{color:var(--muted)}
-[data-theme="dark"] .dash-kpi-card.kpi-teal{background:linear-gradient(135deg,#0a2e1e,#0d3d26)!important}
-[data-theme="dark"] .dash-kpi-card.kpi-red{background:linear-gradient(135deg,#2a0d0d,#3a1515)!important}
-[data-theme="dark"] .dash-kpi-card.kpi-amber{background:linear-gradient(135deg,#1e190a,#2a2410)!important}
-[data-theme="dark"] .dash-kpi-card.kpi-blue{background:linear-gradient(135deg,#0a1830,#0f2040)!important}
+[data-theme="dark"] .dash-kpi-card{background:var(--panel);border-color:var(--line)}
 /* 할일 칩 */
 [data-theme="dark"] .todo-chip{background:#1c1c1c;color:var(--muted);border-color:var(--line)}
 [data-theme="dark"] .todo-chip.active{background:var(--teal);color:#fff}
