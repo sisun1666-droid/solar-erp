@@ -1,6 +1,6 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
 import { genId, today, nowStamp, esc, toast, $, onSearchInput } from "../utils/index.js";
-import { permitsReady, missingPermits, PERMIT_FIELDS } from "./projects.js";
+import { permitsReady, PERMIT_FIELDS } from "./projects.js";
 
 let _editing = null;
 let _search  = "";
@@ -68,22 +68,24 @@ export function linkedProjectIdsOf(c) {
 // 시트 동기화로 들어온 항목은 대부분 수동 연결이 안 돼 있으므로, 명시적 연결이
 // 없으면 현장명이 정확히 같은 프로젝트로 자동 매칭한다(저장은 하지 않고 표시만).
 // 그래도 못 찾으면 null(판단 불가)로 배지를 아예 안 보여준다.
+// 완료된 항목만 조용히 숨기면 "왜 이 항목만 보이지"라는 오해가 생기므로,
+// 5개 항목을 항상 발전사업허가→개발행위→PPA→시설부담금→공사계획필증 순서 그대로
+// ✓/✗로 보여준다(완료된 항목만 골라 숨기지 않음).
 function permitStatusOf(c) {
   const st = getState();
   const projects = st.projects || [];
   let linked = linkedProjectIdsOf(c).map(id => projects.find(p => p.id === id)).filter(Boolean);
   if (!linked.length && c.site) linked = projects.filter(p => p.name === c.site);
   if (!linked.length) return null;
-  const missing = [...new Set(linked.flatMap(missingPermits))];
-  return { ready: missing.length === 0, missing };
+  const items = PERMIT_FIELDS.map(f => ({ label: f.label, done: linked.every(p => !!p[f.key]) }));
+  return { ready: items.every(i => i.done), items };
 }
 // 표에서 바로 눈에 띄어야 하는 항목이라 hover 툴팁 뒤에 숨기지 않고,
-// 미완료 항목 이름을 그대로 칩으로 늘어놓는다.
+// 5개 항목을 정해진 순서대로 전부 ✓/✗ 칩으로 늘어놓는다.
 function permitStatusCell(c) {
   const s = permitStatusOf(c);
   if (!s) return `<span class="badge" style="opacity:.55">DB 미연동</span>`;
-  if (s.ready) return `<span class="badge green">허가완료</span>`;
-  return s.missing.map(m => `<span class="badge amber">${esc(m)}</span>`).join(" ");
+  return s.items.map(i => `<span class="badge ${i.done ? "green" : "amber"}">${i.done ? "✓" : "✗"} ${esc(i.label)}</span>`).join(" ");
 }
 
 // ── 테이블 렌더 ─────────────────────────────────────────────────────────────
