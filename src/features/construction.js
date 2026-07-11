@@ -1,6 +1,6 @@
 import { getState, setState, markDeleted, on } from "../store/index.js";
 import { genId, today, nowStamp, esc, toast, $, onSearchInput } from "../utils/index.js";
-import { permitsReady } from "./projects.js";
+import { permitsReady, missingPermits, PERMIT_FIELDS } from "./projects.js";
 
 let _editing = null;
 let _search  = "";
@@ -62,6 +62,24 @@ function defaultItem() {
 export function linkedProjectIdsOf(c) {
   if (c.projectIds?.length) return c.projectIds;
   return c.projectId ? [c.projectId] : [];
+}
+
+// 연결된 프로젝트DB 현장들의 5대 허가 현황을 합쳐서 판단한다.
+// 하나라도 연결 안 돼있으면 null(판단 불가) — 시트 동기화로 들어온 항목처럼
+// 연결된 현장이 없는 경우가 대부분이라, 이때는 배지를 아예 안 보여준다.
+function permitStatusOf(c) {
+  const st = getState();
+  const linked = linkedProjectIdsOf(c).map(id => (st.projects || []).find(p => p.id === id)).filter(Boolean);
+  if (!linked.length) return null;
+  const missing = [...new Set(linked.flatMap(missingPermits))];
+  return { ready: missing.length === 0, missing };
+}
+function permitStatusBadge(c) {
+  const s = permitStatusOf(c);
+  if (!s) return "";
+  return s.ready
+    ? `<span class="badge green" title="시공 착수 허가 전부 완료">허가완료</span>`
+    : `<span class="badge amber" title="미완료: ${esc(s.missing.join(", "))}">허가대기 ${s.missing.length}</span>`;
 }
 
 // ── 테이블 렌더 ─────────────────────────────────────────────────────────────
@@ -205,6 +223,7 @@ function renderTable(panel) {
             return `<tr class="${rowCls}" title="${esc(c.next)}">
             <td>
               <button class="cell-link" data-con-edit="${c._i}">${esc(c.site)}</button>
+              ${permitStatusBadge(c)}
               <div class="meta">${esc(c.company)} · ${esc(c.structureTeam||"")}</div>
             </td>
             <td>
@@ -232,7 +251,7 @@ function renderTable(panel) {
 function plantRow(c, i) {
   return `<div class="con-plant-row">
     <div class="con-plant-main">
-      <span class="name">${esc(c.site)}</span>
+      <span class="name">${esc(c.site)}</span> ${permitStatusBadge(c)}
       <span class="meta">${esc(c.company)} · <span class="num">${esc(c.kw)}kW</span> · ${esc(c.customer||"고객")}</span>
       <span class="meta">${esc(c.phase)} · ${esc(c.owner||"담당 미입력")} · ${fmtDate(c.start)} ~ ${fmtDate(c.end||"")}</span>
     </div>
@@ -329,6 +348,24 @@ function renderProjectChips() {
       ${esc(p.name)}
       <button type="button" class="btn icon" data-con-unlink-project="${esc(p.id)}" style="min-height:auto;padding:0 2px;border:0;background:none">×</button>
     </span>`).join("") || `<span class="meta">연결된 현장 없음</span>`;
+  renderPermitChecklist(linked);
+}
+
+// 연결된 현장(들)의 5대 허가/납부 항목을 프로젝트별로 체크리스트로 보여준다 —
+// 시공 착수 가능 여부를 판단하려고 프로젝트DB를 따로 찾아볼 필요가 없게.
+function renderPermitChecklist(linked) {
+  const box = document.getElementById("conPermitChecklist");
+  if (!box) return;
+  if (!linked.length) { box.innerHTML = ""; return; }
+  box.innerHTML = linked.map(p => `
+    <div style="margin-bottom:6px">
+      <div class="meta">${esc(p.name)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">
+        ${PERMIT_FIELDS.map(f => `
+          <span class="badge ${p[f.key] ? "green" : "amber"}">${p[f.key] ? "✓" : "✗"} ${esc(f.label)}</span>
+        `).join("")}
+      </div>
+    </div>`).join("");
 }
 
 function refreshProjectDatalist() {
@@ -380,6 +417,7 @@ function openModal(idx = null) {
       <input class="field" id="conProjectSearch" list="conProjectDatalist" autocomplete="off"
         placeholder="현장명 검색 후 선택하면 추가됩니다">
       <datalist id="conProjectDatalist">${projectDatalist}</datalist>
+      <div id="conPermitChecklist" style="margin-top:8px"></div>
     </div>
     <div class="form-row">
       <label>시공사</label>

@@ -6,6 +6,26 @@ function statusBadge(s) {
   return `<span class="badge">${esc(s)}</span>`;
 }
 
+// 시공 착수 5대 허가/납부 항목 (construction.js 상세 체크리스트에서도 재사용)
+export const PERMIT_FIELDS = [
+  { key: "permitPower",        label: "발전사업허가일" },
+  { key: "permitDev",          label: "개발행위허가일" },
+  { key: "permitPpa",          label: "PPA필증" },
+  { key: "permitFee",          label: "시설부담금납부일" },
+  { key: "permitConstruction", label: "공사계획필증수령일" },
+];
+
+// 시공 착수 5대 허가/납부 항목 중 아직 안 채워진 항목 라벨만 뽑아준다.
+export function missingPermits(p) {
+  return PROJECT_FIELDS.filter(f => f.key.startsWith("permit") && !p[f.key]).map(f => f.label.replace(" 완료", "").replace("공사계획필증 허가일", "공사계획필증"));
+}
+function permitBadge(p) {
+  const missing = missingPermits(p);
+  return missing.length
+    ? `<span class="badge amber" title="미완료: ${esc(missing.join(", "))}">허가대기 ${missing.length}</span>`
+    : `<span class="badge green">시공가능</span>`;
+}
+
 let _editProject = null;
 let _projSearch  = "";
 let _projPhase   = "전체";
@@ -136,6 +156,7 @@ function renderProjectResults(panel) {
           <th style="width:10%">${sortHead("owner","담당")}</th>
           <th style="width:11%">${sortHead("due","마감일")}</th>
           <th style="width:11%">${sortHead("status","상태")}</th>
+          <th style="width:9%">허가현황</th>
           <th>다음 액션</th>
           <th style="width:70px">관리</th>
         </tr></thead>
@@ -155,11 +176,12 @@ function renderProjectResults(panel) {
               <td>${esc(p.owner)}</td>
               <td>${esc(p.due)}</td>
               <td>${statusBadge(p.status)}</td>
+              <td>${permitBadge(p)}</td>
               <td title="${esc(p.next)}">${esc((p.next||"").length>40?p.next.slice(0,40)+"…":p.next)}</td>
               <td><button class="btn icon" data-proj-edit="${esc(p.id)}">수정</button></td>
             </tr>`;
           }).join("")}
-          ${rows.length === 0 ? `<tr><td colspan="${_projGroupView ? 10 : 7}" style="text-align:center;padding:24px;color:var(--muted)">현장이 없습니다.</td></tr>` : ""}
+          ${rows.length === 0 ? `<tr><td colspan="${_projGroupView ? 11 : 8}" style="text-align:center;padding:24px;color:var(--muted)">현장이 없습니다.</td></tr>` : ""}
         </tbody>
       </table>
     </div>
@@ -425,6 +447,10 @@ function openProjectModal(id = null) {
         <div class="form-row"><label>마감일</label><input class="field" type="date" id="projDue" value="${esc(p.due)}"></div>
         <div class="form-row"><label>상태</label><select class="field" id="projStatus">${statOpts}</select></div>
         <div class="form-row full"><label>다음 액션</label><textarea class="field" id="projNext">${esc(p.next||"")}</textarea></div>
+        <div class="form-row full"><label>시공 착수 허가/납부 현황 — 5개 전부 채워져야 "시공가능"으로 표시됩니다</label></div>
+        ${PROJECT_FIELDS.filter(f => f.key.startsWith("permit")).map(f => `
+          <div class="form-row"><label>${esc(f.label)}</label><input class="field" id="projPermit_${f.key}" value="${esc(p[f.key]||"")}" placeholder="완료일 또는 완료 표시"></div>
+        `).join("")}
       </div>
       <div class="toolbar" style="margin-top:14px">
         <button class="btn primary" id="projSaveBtn">저장</button>
@@ -442,7 +468,12 @@ function openProjectModal(id = null) {
 function saveProject() {
   const st = getState();
   const projects = [...(st.projects || [])];
-  const p = normProject({
+  const permitFields = {};
+  for (const f of PROJECT_FIELDS) {
+    if (!f.key.startsWith("permit")) continue;
+    permitFields[f.key] = $(`projPermit_${f.key}`)?.value || "";
+  }
+  const formFields = {
     name:  $("projName")?.value || "",
     phase: $("projPhaseModal")?.value || "",
     owner: $("projOwner")?.value || "",
@@ -451,13 +482,17 @@ function saveProject() {
     due:   $("projDue")?.value || today(),
     status:$("projStatus")?.value || "정상",
     next:  $("projNext")?.value || "",
-  });
+    ...permitFields,
+  };
+  let p;
   if (_editProject !== null) {
     const idx = projects.findIndex(x => x.id === _editProject);
     if (idx < 0) { toast("현장을 찾을 수 없습니다. 다시 시도해주세요."); return; }
-    p.id = projects[idx].id;
+    // 폼에 없는 필드(가져오기로 들어온 값 등)는 그대로 보존 — 통째로 덮어써서 날리지 않는다.
+    p = normProject({ ...projects[idx], ...formFields, id: projects[idx].id });
     projects[idx] = p;
   } else {
+    p = normProject(formFields);
     projects.unshift(p);
   }
   setState({ projects });
