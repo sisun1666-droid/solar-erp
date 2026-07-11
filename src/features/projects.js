@@ -237,6 +237,7 @@ const PROJECT_FIELDS = [
   { key: "phase",    label: "업무단계" },
   { key: "owner",    label: "담당자" },
   { key: "bizOwner", label: "사업주" },
+  { key: "bizOwnerPhone", label: "사업주 연락처" },
   { key: "address",  label: "현장 주소" },
   { key: "due",      label: "마감일" },
   { key: "status",   label: "상태" },
@@ -262,7 +263,7 @@ export function permitsReady(p) {
 function guessColumn(headers, key) {
   const hints = {
     name: ["현장", "고객", "발전소", "이름"], phase: ["단계", "phase"],
-    owner: ["담당"], bizOwner: ["사업주"], address: ["주소", "지번"],
+    owner: ["담당"], bizOwner: ["사업주"], bizOwnerPhone: ["연락처", "전화"], address: ["주소", "지번"],
     due: ["마감", "일자", "날짜"], status: ["상태"], next: ["액션", "메모", "비고"],
     kw: ["발전_허가용량"],
     permitPower: ["발전_완료"], permitDev: ["개발_완료"], permitPpa: ["PPA_완료"],
@@ -416,7 +417,7 @@ function openProjectModal(id = null) {
   _editProject = id;
   const st = getState();
   const p = id === null
-    ? { name: "", phase: (st.phases||[])[0]||"고객상담", owner: "", bizOwner: "", address: "", due: today(), status: "정상", next: "" }
+    ? { name: "", phase: (st.phases||[])[0]||"고객상담", owner: "", bizOwner: "", bizOwnerPhone: "", address: "", due: today(), status: "정상", next: "" }
     : { ...(st.projects.find(x => x.id === id)) };
 
   const phaseOpts = (st.phases || []).map(x => `<option${x === p.phase ? " selected" : ""}>${esc(x)}</option>`).join("");
@@ -443,6 +444,7 @@ function openProjectModal(id = null) {
         <div class="form-row"><label>업무단계</label><select class="field" id="projPhaseModal">${phaseOpts}</select></div>
         <div class="form-row"><label>담당자</label><input class="field" id="projOwner" value="${esc(p.owner||"")}"></div>
         <div class="form-row"><label>사업주</label><input class="field" id="projBizOwner" value="${esc(p.bizOwner||"")}"></div>
+        <div class="form-row"><label>사업주 연락처</label><input class="field" id="projBizOwnerPhone" value="${esc(p.bizOwnerPhone||"")}"></div>
         <div class="form-row full"><label>현장 주소</label><input class="field" id="projAddress" value="${esc(p.address||"")}"></div>
         <div class="form-row"><label>마감일</label><input class="field" type="date" id="projDue" value="${esc(p.due)}"></div>
         <div class="form-row"><label>상태</label><select class="field" id="projStatus">${statOpts}</select></div>
@@ -478,6 +480,7 @@ function saveProject() {
     phase: $("projPhaseModal")?.value || "",
     owner: $("projOwner")?.value || "",
     bizOwner: $("projBizOwner")?.value || "",
+    bizOwnerPhone: $("projBizOwnerPhone")?.value || "",
     address:  $("projAddress")?.value || "",
     due:   $("projDue")?.value || today(),
     status:$("projStatus")?.value || "정상",

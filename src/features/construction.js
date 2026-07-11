@@ -52,7 +52,7 @@ function defaultItem() {
   return {
     company: st.constructionTeams?.[0] || "",
     structureTeam: st.structureTeams?.[0] || "",
-    projectId: "", projectIds: [], site: "", address: "", kw: 0, sales: "", customer: "",
+    projectId: "", projectIds: [], site: "", address: "", kw: 0, sales: "", customer: "", bizOwnerPhone: "",
     phase: st.constructionPhases?.[0] || "착공",
     owner: "", start: today(), end: "", status: "예정", next: "",
   };
@@ -343,6 +343,7 @@ function applyLinkedProjectsAutofill() {
   set("conAddress", first.address || "");
   set("conCustomer", first.bizOwner || "");
   set("conSales", first.owner || "");
+  set("conBizOwnerPhone", first.bizOwnerPhone || "");
   const kwSum = linkedProjectsKwSum(linked);
   if (kwSum) set("conKw", kwSum);
 }
@@ -452,6 +453,10 @@ function openModal(idx = null) {
       <input class="field" id="conCustomer" value="${esc(c.customer)}">
     </div>
     <div class="form-row">
+      <label>사업주 연락처</label>
+      <input class="field" id="conBizOwnerPhone" value="${esc(c.bizOwnerPhone||"")}">
+    </div>
+    <div class="form-row">
       <label>담당자</label>
       <input class="field" id="conOwner" value="${esc(c.owner)}">
     </div>
@@ -521,6 +526,7 @@ function saveModal() {
     kw:            Number(document.getElementById("conKw")?.value) || 0,
     sales:         document.getElementById("conSales")?.value || "",
     customer:      document.getElementById("conCustomer")?.value || "",
+    bizOwnerPhone: document.getElementById("conBizOwnerPhone")?.value || "",
     owner:         document.getElementById("conOwner")?.value || "",
     phase:         document.getElementById("conPhaseModal")?.value || "",
     start:         document.getElementById("conStart")?.value || today(),
