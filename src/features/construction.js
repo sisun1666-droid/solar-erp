@@ -65,11 +65,14 @@ export function linkedProjectIdsOf(c) {
 }
 
 // 연결된 프로젝트DB 현장들의 5대 허가 현황을 합쳐서 판단한다.
-// 하나라도 연결 안 돼있으면 null(판단 불가) — 시트 동기화로 들어온 항목처럼
-// 연결된 현장이 없는 경우가 대부분이라, 이때는 배지를 아예 안 보여준다.
+// 시트 동기화로 들어온 항목은 대부분 수동 연결이 안 돼 있으므로, 명시적 연결이
+// 없으면 현장명이 정확히 같은 프로젝트로 자동 매칭한다(저장은 하지 않고 표시만).
+// 그래도 못 찾으면 null(판단 불가)로 배지를 아예 안 보여준다.
 function permitStatusOf(c) {
   const st = getState();
-  const linked = linkedProjectIdsOf(c).map(id => (st.projects || []).find(p => p.id === id)).filter(Boolean);
+  const projects = st.projects || [];
+  let linked = linkedProjectIdsOf(c).map(id => projects.find(p => p.id === id)).filter(Boolean);
+  if (!linked.length && c.site) linked = projects.filter(p => p.name === c.site);
   if (!linked.length) return null;
   const missing = [...new Set(linked.flatMap(missingPermits))];
   return { ready: missing.length === 0, missing };
