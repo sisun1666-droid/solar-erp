@@ -217,7 +217,7 @@ function renderTable(panel) {
             <th style="width:9%">${sortHead("customer","고객")}</th>
             <th class="num" style="width:7%">용량</th>
             <th style="width:8%">${sortHead("phase","업무단계")}</th>
-            <th style="width:7%">${sortHead("owner","담당")}</th>
+            <th style="width:7%">${sortHead("sales","영업자")}</th>
             <th style="width:11%">기간</th>
             <th style="width:7%">${sortHead("status","상태")}</th>
             <th style="width:28%">허가현황</th>
@@ -238,7 +238,7 @@ function renderTable(panel) {
             </td>
             <td class="num">${esc(c.kw)}kW</td>
             <td>${esc(c.phase)}</td>
-            <td>${esc(c.owner)}</td>
+            <td>${esc(c.sales)}</td>
             <td>
               ${fmtDate(c.start)} ~ ${fmtDate(c.end)}
               <div class="meta">${durationDays(c.start, c.end)}일</div>
@@ -260,7 +260,7 @@ function plantRow(c, i) {
     <div class="con-plant-main">
       <span class="name">${esc(c.site)}</span>
       <span class="meta">${esc(c.company)} · <span class="num">${esc(c.kw)}kW</span> · ${esc(c.customer||"고객")}</span>
-      <span class="meta">${esc(c.phase)} · ${esc(c.owner||"담당 미입력")} · ${fmtDate(c.start)} ~ ${fmtDate(c.end||"")}</span>
+      <span class="meta">${esc(c.phase)} · ${esc(c.sales||"영업자 미입력")} · ${fmtDate(c.start)} ~ ${fmtDate(c.end||"")}</span>
       ${permitStatusOf(c) ? `<div style="margin-top:2px">${permitStatusCell(c)}</div>` : ""}
     </div>
     <div class="con-plant-side">
