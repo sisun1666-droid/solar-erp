@@ -17,15 +17,19 @@ function durationDays(start, end) {
   if (isNaN(s) || isNaN(e) || e < s) return 0;
   return Math.round((e - s) / 86400000) + 1;
 }
-function completionMonth(end) {
-  return end && /^\d{4}-\d{2}/.test(end) ? end.slice(0, 7) : "";
-}
 function statusBadge(s) {
   const cls = s?.includes("지연") || s?.includes("긴급") ? "red"
     : s?.includes("예정") || s?.includes("대기") ? "amber"
     : s?.includes("진행") || s?.includes("시공중") ? "blue" : "green";
   return `<span class="badge ${cls}">${esc(s)}</span>`;
 }
+// yyyy-mm-dd → yy.mm.dd, 한눈에 훑기 쉽도록 표에서만 짧게 표기 (원본 값은 그대로 저장/편집됨)
+function fmtDate(d) {
+  return d && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(2).replace(/-/g, ".") : (d || "-");
+}
+// 상태별 정렬 우선순위: 지연이 가장 먼저 눈에 띄어야 함
+const STATUS_RANK = { "지연": 0, "시공중": 1, "예정": 2, "보류": 3, "완료": 4 };
+function statusRank(s) { return STATUS_RANK[s] ?? 5; }
 
 // ── 정규화 ──────────────────────────────────────────────────────────────────
 function normConstruction(c) {
@@ -62,7 +66,12 @@ export function linkedProjectIdsOf(c) {
 
 // ── 테이블 렌더 ─────────────────────────────────────────────────────────────
 function sortRows(rows) {
-  if (!_sortKey) return rows;
+  // 정렬 기준을 직접 누르기 전까지는 상태 우선순위(지연→시공중→예정→보류→완료)로
+  // 기본 정렬해서 지연/시공중 현장이 항상 위쪽에 먼저 보이게 한다.
+  if (!_sortKey) {
+    return [...rows].sort((a, b) =>
+      statusRank(a.status) - statusRank(b.status) || String(a.site || "").localeCompare(String(b.site || ""), "ko"));
+  }
   return [...rows].sort((a, b) => {
     const av = String(a[_sortKey] ?? ""), bv = String(b[_sortKey] ?? "");
     const n = /^\d+$/.test(av) && /^\d+$/.test(bv);
@@ -89,6 +98,7 @@ function ensureConstructionShell(panel) {
   if (panel.dataset.conShellReady) return;
   panel.dataset.conShellReady = "1";
   panel.innerHTML = `
+    <div id="conSummary" class="con-summary"></div>
     <div class="toolbar" style="margin-bottom:12px">
       <input class="search" id="conSearch" placeholder="현장, 시공사, 고객 검색" value="${esc(_search)}" style="max-width:260px">
       <div id="conPhaseSlot"></div>
@@ -108,10 +118,30 @@ function ensureConstructionShell(panel) {
   });
 }
 
+// 상단 요약 스트립 — 한눈에 전체 현황을 파악하도록 상태별 건수만 보여준다.
+function renderSummary(list) {
+  const el = document.getElementById("conSummary");
+  if (!el) return;
+  const count = s => list.filter(c => c.status === s).length;
+  const items = [
+    { label: "전체",   n: list.length, cls: "" },
+    { label: "시공중", n: count("시공중"), cls: "blue" },
+    { label: "예정",   n: count("예정"),  cls: "amber" },
+    { label: "지연",   n: count("지연"),  cls: "red" },
+    { label: "완료",   n: count("완료"),  cls: "green" },
+  ];
+  el.innerHTML = items.map(it => `
+    <div class="con-summary-item ${it.cls}">
+      <span class="con-summary-n">${it.n}</span>
+      <span class="con-summary-label">${esc(it.label)}</span>
+    </div>`).join("");
+}
+
 function renderTable(panel) {
   ensureConstructionShell(panel);
   const st = getState();
   const list = st.construction || [];
+  renderSummary(list);
   const phases = ["전체", ...(st.constructionPhases || [])];
 
   const phaseOpts = phases.map(p =>
@@ -141,23 +171,26 @@ function renderTable(panel) {
 
   wrap.innerHTML = `
     ${candidates.length ? `
-      <div class="panel" style="margin-bottom:16px">
-        <div class="panel-title"><h2 class="label">시공 등록 대기 (허가 완료)</h2></div>
-        <div class="stack">
-          ${candidates.map(p => `<div class="card">
-            <div class="card-top"><span class="name">${esc(p.name)}</span></div>
-            <div class="meta">${esc(p.bizOwner||"")} · ${esc(p.address||"")}</div>
-            <button class="btn primary" data-con-new-from-project="${esc(p.id)}" style="margin-top:8px">시공일정 추가</button>
+      <div class="panel con-candidates" style="margin-bottom:16px">
+        <div class="panel-title"><h2 class="label">시공 등록 대기 (허가 완료) · ${candidates.length}건</h2></div>
+        <div class="con-candidate-list">
+          ${candidates.map(p => `<div class="con-candidate-row">
+            <div class="con-candidate-info">
+              <span class="name">${esc(p.name)}</span>
+              <span class="meta">${esc(p.bizOwner||"")} · ${esc(p.address||"")}</span>
+            </div>
+            <button class="btn primary" data-con-new-from-project="${esc(p.id)}">시공일정 추가</button>
           </div>`).join("")}
         </div>
       </div>` : ""}
     ${hiddenDoneCount ? `<div class="meta" style="margin-bottom:8px">완료 ${hiddenDoneCount}건 숨김 (체크박스 해제 시 표시)</div>` : ""}
     <div class="table-wrap">
-      <table>
+      <table class="con-table">
         <thead>
           <tr>
             <th>${sortHead("site","현장")}</th>
             <th>${sortHead("customer","고객")}</th>
+            <th class="num">용량</th>
             <th>${sortHead("phase","업무단계")}</th>
             <th>${sortHead("owner","담당")}</th>
             <th>기간</th>
@@ -166,36 +199,40 @@ function renderTable(panel) {
           </tr>
         </thead>
         <tbody>
-          ${rows.map(c => `<tr title="${esc(c.next)}">
+          ${rows.map(c => {
+            const rowCls = c.status === "지연" ? "con-row-late" : c.status === "시공중" ? "con-row-active" : "";
+            return `<tr class="${rowCls}" title="${esc(c.next)}">
             <td>
               <button class="cell-link" data-con-edit="${c._i}">${esc(c.site)}</button>
-              <div class="meta">${esc(c.company)} · ${esc(c.structureTeam||"")} · ${esc(c.kw)}kW</div>
+              <div class="meta">${esc(c.company)} · ${esc(c.structureTeam||"")}</div>
             </td>
             <td>
               ${esc(c.customer)}
               <div class="meta">${esc(c.sales)}</div>
             </td>
+            <td class="num">${esc(c.kw)}kW</td>
             <td>${esc(c.phase)}</td>
             <td>${esc(c.owner)}</td>
             <td>
-              ${esc(c.start)} ~ ${esc(c.end)}
+              ${fmtDate(c.start)} ~ ${fmtDate(c.end)}
               <div class="meta">${durationDays(c.start, c.end)}일</div>
             </td>
             <td>${statusBadge(c.status)}</td>
             <td><button class="btn icon" data-con-edit="${c._i}">수정</button></td>
-          </tr>`).join("")}
-          ${rows.length === 0 ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">시공일정이 없습니다.</td></tr>` : ""}
+          </tr>`;
+          }).join("")}
+          ${rows.length === 0 ? `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">시공일정이 없습니다.</td></tr>` : ""}
         </tbody>
       </table>
     </div>
-    <div class="grid" style="margin-top:16px;grid-template-columns:1fr 1fr">
+    <div class="grid con-plant-grid" style="margin-top:16px;grid-template-columns:1fr 1fr">
       <div class="panel">
         <div class="panel-title"><h2 class="label">시공중</h2></div>
-        <div id="conCurrentPlants" class="stack"></div>
+        <div id="conCurrentPlants" class="con-plant-list"></div>
       </div>
       <div class="panel">
         <div class="panel-title"><h2 class="label">시공 예정</h2></div>
-        <div id="conUpcomingPlants" class="stack"></div>
+        <div id="conUpcomingPlants" class="con-plant-list"></div>
       </div>
     </div>`;
 
@@ -210,12 +247,16 @@ function renderPlantCards() {
 
   function plantCard(c) {
     const i = con.indexOf(c);
-    return `<div class="card">
-      <div class="card-top"><span class="name">${esc(c.site)}</span>${statusBadge(c.status)}</div>
-      <div class="meta">${esc(c.company)} · ${esc(c.kw)}kW · ${esc(c.customer||"고객")}</div>
-      <div class="meta">${esc(c.phase)} · ${esc(c.owner||"담당 미입력")} · ${esc(c.start)} ~ ${esc(c.end||"")}</div>
-      <div class="meta">완료월 ${esc(completionMonth(c.end)||"-")} · 소요일 ${durationDays(c.start,c.end)}일</div>
-      <button class="btn icon" data-con-edit="${i}" style="margin-top:8px">수정</button>
+    return `<div class="con-plant-row">
+      <div class="con-plant-main">
+        <span class="name">${esc(c.site)}</span>
+        <span class="meta">${esc(c.company)} · <span class="num">${esc(c.kw)}kW</span> · ${esc(c.customer||"고객")}</span>
+        <span class="meta">${esc(c.phase)} · ${esc(c.owner||"담당 미입력")} · ${fmtDate(c.start)} ~ ${fmtDate(c.end||"")}</span>
+      </div>
+      <div class="con-plant-side">
+        ${statusBadge(c.status)}
+        <button class="btn icon" data-con-edit="${i}">수정</button>
+      </div>
     </div>`;
   }
 

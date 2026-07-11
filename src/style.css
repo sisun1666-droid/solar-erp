@@ -357,6 +357,51 @@
 #mainGrid.construction-mode>.panel .table-wrap{flex:1;min-height:0;overflow:auto}
 #mainGrid.construction-mode>.stack{height:100%;overflow-y:auto;overflow-x:hidden}
 @media(max-width:980px){#mainGrid.construction-mode{grid-template-columns:1fr;height:auto;overflow:visible}}
+
+/* ── 시공일정 리모델링: 사무적/스캔하기 쉬운 스타일 ── */
+/* 상단 요약 스트립 — 상태별 건수를 한눈에 */
+.con-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.con-summary-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:2px}
+.con-summary-item.blue{border-left-color:var(--blue)}
+.con-summary-item.amber{border-left-color:var(--amber)}
+.con-summary-item.red{border-left-color:var(--red)}
+.con-summary-item.green{border-left-color:var(--green)}
+.con-summary-n{font-size:20px;font-weight:700;letter-spacing:-.5px;color:var(--ink)}
+.con-summary-label{font-size:11px;color:var(--muted);font-weight:600}
+
+/* 숫자 컬럼: 오른쪽 정렬로 자릿수 비교가 쉽게 */
+.con-table td.num,.con-table th.num{text-align:right;font-variant-numeric:tabular-nums}
+.con-table td .meta{margin-top:2px}
+/* 지연/시공중 행 강조 — 튀는 색 대신 좌측 얇은 라인 + 은은한 배경만 */
+.con-table tr.con-row-late td{background:rgba(239,68,68,.05)}
+.con-table tr.con-row-late td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.con-table tr.con-row-active td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+
+/* 시공 등록 대기 — 카드 대신 얇은 리스트 행으로 정리 */
+.con-candidate-list{display:grid;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.con-candidate-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--panel)}
+.con-candidate-row+.con-candidate-row{border-top:1px solid var(--line)}
+.con-candidate-info{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
+.con-candidate-info .name{font-size:13px}
+.con-candidate-info .meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 시공중/시공 예정 패널 — 카드 그리드 대신 조용한 리스트 */
+.con-plant-list{display:grid;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.con-plant-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--panel)}
+.con-plant-row+.con-plant-row{border-top:1px solid var(--line)}
+.con-plant-main{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
+.con-plant-main .name{font-size:13px}
+.con-plant-side{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+@media(max-width:760px){
+  .con-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .con-plant-grid{grid-template-columns:1fr!important}
+  .con-candidate-row,.con-plant-row{flex-wrap:wrap}
+  .con-plant-side{margin-left:auto}
+}
+@media(max-width:620px){
+  .con-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
     /* 날씨+시계 그리드 */
     .weather-clock-grid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;align-items:start}
     @media(max-width:980px){.weather-clock-grid{grid-template-columns:1fr}}
