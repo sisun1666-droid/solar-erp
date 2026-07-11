@@ -74,12 +74,13 @@ function permitStatusOf(c) {
   const missing = [...new Set(linked.flatMap(missingPermits))];
   return { ready: missing.length === 0, missing };
 }
-function permitStatusBadge(c) {
+// 표에서 바로 눈에 띄어야 하는 항목이라 hover 툴팁 뒤에 숨기지 않고,
+// 미완료 항목 이름을 그대로 칩으로 늘어놓는다.
+function permitStatusCell(c) {
   const s = permitStatusOf(c);
-  if (!s) return "";
-  return s.ready
-    ? `<span class="badge green" title="시공 착수 허가 전부 완료">허가완료</span>`
-    : `<span class="badge amber" title="미완료: ${esc(s.missing.join(", "))}">허가대기 ${s.missing.length}</span>`;
+  if (!s) return `<span class="badge" style="opacity:.55">DB 미연동</span>`;
+  if (s.ready) return `<span class="badge green">허가완료</span>`;
+  return s.missing.map(m => `<span class="badge amber">${esc(m)}</span>`).join(" ");
 }
 
 // ── 테이블 렌더 ─────────────────────────────────────────────────────────────
@@ -214,6 +215,7 @@ function renderTable(panel) {
             <th>${sortHead("owner","담당")}</th>
             <th>기간</th>
             <th>${sortHead("status","상태")}</th>
+            <th>허가현황</th>
             <th style="width:60px">관리</th>
           </tr>
         </thead>
@@ -223,7 +225,6 @@ function renderTable(panel) {
             return `<tr class="${rowCls}" title="${esc(c.next)}">
             <td>
               <button class="cell-link" data-con-edit="${c._i}">${esc(c.site)}</button>
-              ${permitStatusBadge(c)}
               <div class="meta">${esc(c.company)} · ${esc(c.structureTeam||"")}</div>
             </td>
             <td>
@@ -238,10 +239,11 @@ function renderTable(panel) {
               <div class="meta">${durationDays(c.start, c.end)}일</div>
             </td>
             <td>${statusBadge(c.status)}</td>
+            <td style="max-width:220px">${permitStatusCell(c)}</td>
             <td><button class="btn icon" data-con-edit="${c._i}">수정</button></td>
           </tr>`;
           }).join("")}
-          ${rows.length === 0 ? `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">시공일정이 없습니다.</td></tr>` : ""}
+          ${rows.length === 0 ? `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">시공일정이 없습니다.</td></tr>` : ""}
         </tbody>
       </table>
     </div>`;
@@ -251,9 +253,10 @@ function renderTable(panel) {
 function plantRow(c, i) {
   return `<div class="con-plant-row">
     <div class="con-plant-main">
-      <span class="name">${esc(c.site)}</span> ${permitStatusBadge(c)}
+      <span class="name">${esc(c.site)}</span>
       <span class="meta">${esc(c.company)} · <span class="num">${esc(c.kw)}kW</span> · ${esc(c.customer||"고객")}</span>
       <span class="meta">${esc(c.phase)} · ${esc(c.owner||"담당 미입력")} · ${fmtDate(c.start)} ~ ${fmtDate(c.end||"")}</span>
+      ${permitStatusOf(c) ? `<div style="margin-top:2px">${permitStatusCell(c)}</div>` : ""}
     </div>
     <div class="con-plant-side">
       ${statusBadge(c.status)}
