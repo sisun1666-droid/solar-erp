@@ -80,6 +80,16 @@ function permitStatusOf(c) {
   const items = PERMIT_FIELDS.map(f => ({ label: f.label, done: linked.every(p => !!p[f.key]) }));
   return { ready: items.every(i => i.done), items };
 }
+// 사업주 연락처도 허가현황과 같은 방식으로 자동 매칭한다(저장 없이 표시만).
+// 연결된 현장이 여럿이면 전화번호가 서로 다를 수 있어 중복 제거 후 나열한다.
+function bizOwnerPhoneOf(c) {
+  const st = getState();
+  const projects = st.projects || [];
+  let linked = linkedProjectIdsOf(c).map(id => projects.find(p => p.id === id)).filter(Boolean);
+  if (!linked.length && c.site) linked = projects.filter(p => p.name === c.site);
+  const phones = [...new Set(linked.map(p => p.bizOwnerPhone).filter(Boolean))];
+  return phones.join(" / ");
+}
 // 표에서 바로 눈에 띄어야 하는 항목이라 hover 툴팁 뒤에 숨기지 않고,
 // 5개 항목을 정해진 순서대로 전부 ✓/✗ 칩으로 늘어놓는다.
 function permitStatusCell(c) {
@@ -235,6 +245,7 @@ function renderTable(panel) {
             <td>
               ${esc(c.customer)}
               <div class="meta">${esc(c.sales)}</div>
+              ${bizOwnerPhoneOf(c) ? `<div class="meta">${esc(bizOwnerPhoneOf(c))}</div>` : ""}
             </td>
             <td class="num">${esc(c.kw)}kW</td>
             <td>${esc(c.phase)}</td>
