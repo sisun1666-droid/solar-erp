@@ -66,7 +66,7 @@
     .search:focus,.field:focus,select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.10)}
     .search{flex:1;min-width:220px;height:36px;padding:0 12px}
     .field,select{min-height:36px;padding:0 10px}
-    textarea.field{min-height:82px;padding:9px 10px;resize:vertical}
+    textarea.field{min-height:180px;padding:9px 10px;resize:vertical}
     /* ── 테이블 ── */
     .table-wrap{overflow:auto}
     table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;min-width:900px}
@@ -444,7 +444,7 @@
     #assignmentModal .quick-durations .btn,#todoModal .quick-durations .btn{min-height:34px;border-radius:999px;background:#fffef8;border-color:#e8ebe4;color:#4c5a54;padding:0 14px;box-shadow:none}
     #assignmentModal .quick-durations .btn.primary,#todoModal .quick-durations .btn.primary{background:#0f766e;border-color:#0f766e;color:#fff}
     #assignmentModal .helper-grid,#todoModal .helper-grid{border-color:#e8ebe4;border-radius:12px;background:#fffef8;box-shadow:0 1px 5px rgba(45,55,45,.05)}
-    #assignmentModal textarea.field,#todoModal textarea.field{min-height:74px;line-height:1.5;padding-top:10px}
+    #assignmentModal textarea.field,#todoModal textarea.field{min-height:180px;line-height:1.5;padding-top:10px}
     #assignmentModal .toolbar,#todoModal .toolbar{position:sticky;bottom:0;margin:18px -20px 0!important;padding:14px 20px;background:linear-gradient(180deg,rgba(255,253,246,.8),#fffdf6 30%);border-top:1px solid #edf0ea;justify-content:flex-end}
     #assignmentModal .toolbar .btn,#todoModal .toolbar .btn{border-radius:12px}
     #assignmentModal .toolbar .btn.primary,#todoModal .toolbar .btn.primary{background:#0f766e;border-color:#0f766e}

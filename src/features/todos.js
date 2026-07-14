@@ -25,6 +25,8 @@ function normTodo(t) {
   if (!t.due)      t.due      = today();
   if (!t.title)    t.title    = "제목 없는 할일";
   if (!t.start)    t.start    = t.due;
+  if (t.startTime === undefined) t.startTime = "";
+  if (t.dueTime === undefined)   t.dueTime   = "";
   return t;
 }
 function stampCompletion(t, oldStatus) {
@@ -41,6 +43,8 @@ function normAssign(a) {
   if (!a.type)     a.type     = "일반업무";
   if (a.project === undefined) a.project = "";
   if (!a.title)    a.title    = "제목 없는 일정";
+  if (a.startTime === undefined) a.startTime = "";
+  if (a.dueTime === undefined)   a.dueTime   = "";
   return a;
 }
 
@@ -65,7 +69,7 @@ function assignToTodo(a, old = {}) {
     linkedAssignmentId: a.id,
     title: a.title, owner: a.owner, status: assignStatusToTodo(a.status),
     priority: a.priority, start: a.start, due: a.due, detail: a.detail || "",
-    project: a.project, type: a.type,
+    project: a.project, type: a.type, startTime: a.startTime || "", dueTime: a.dueTime || "",
   });
   return stampCompletion(t, old.status);
 }
@@ -76,6 +80,7 @@ function todoToAssign(t, old = {}) {
     owner: t.owner, project: t.project || "", priority: t.priority,
     status: todoStatusToAssign(t.status), start: t.start || t.due || today(),
     due: t.due || today(), type: t.type || "일반업무", title: t.title, detail: t.detail || "",
+    startTime: t.startTime || "", dueTime: t.dueTime || "",
   });
 }
 
@@ -287,7 +292,7 @@ function renderBoardResults(panel) {
           <div class="todo-card" draggable="true" data-todo-id="${esc(t.id)}" style="border-left:4px solid ${COL_STYLE.cbr[s]||"#cbd5e1"}">
             <div class="todo-card-title">${esc(t.title)} ${dueBadge(t)}</div>
             ${t.project && t.project !== "일반업무" ? `<div class="todo-card-meta" style="font-weight:600">${esc(t.project)}</div>` : ""}
-            <div class="todo-card-meta">${esc(t.owner||"담당 미정")} · ${esc(t.priority||"보통")} · ${esc(t.due||"")}</div>
+            <div class="todo-card-meta">${esc(t.owner||"담당 미정")} · ${esc(t.priority||"보통")} · ${esc(t.due||"")}${t.dueTime ? " " + esc(t.dueTime) : ""}</div>
             ${t.detail ? `<div class="todo-card-meta" style="margin-top:2px">${esc(t.detail.length > 40 ? t.detail.slice(0, 40) + "…" : t.detail)}</div>` : ""}
             <div class="row-actions" style="margin-top:7px">
               <button class="btn icon" data-edit-todo="${esc(t.id)}">수정</button>
@@ -372,11 +377,17 @@ function openTodoModal(id = null, defaultStatus = "할 일") {
     </div>
     <div class="form-row">
       <label>시작일</label>
-      <input class="field" type="date" id="todoStart" value="${esc(t.start)}">
+      <div class="time-grid">
+        <input class="field" type="date" id="todoStart" value="${esc(t.start)}">
+        <input class="field" type="time" id="todoStartTime" value="${esc(t.startTime || "")}">
+      </div>
     </div>
     <div class="form-row">
       <label>마감일</label>
-      <input class="field" type="date" id="todoDue" value="${esc(t.due)}">
+      <div class="time-grid">
+        <input class="field" type="date" id="todoDue" value="${esc(t.due)}">
+        <input class="field" type="time" id="todoDueTime" value="${esc(t.dueTime || "")}">
+      </div>
     </div>
     <div class="form-row full">
       <label>설명</label>
@@ -411,6 +422,8 @@ async function saveTodo() {
     type: $("todoType")?.value || "일반업무",
     start: $("todoStart")?.value || today(),
     due: $("todoDue")?.value || today(),
+    startTime: $("todoStartTime")?.value || "",
+    dueTime: $("todoDueTime")?.value || "",
     detail: $("todoDetail")?.value || "",
   });
   let todoIdx = 0;
@@ -494,11 +507,17 @@ function openAssignModal(id = null) {
     </div>
     <div class="form-row">
       <label>시작일</label>
-      <input class="field" type="date" id="assignmentStart" value="${esc(a.start)}">
+      <div class="time-grid">
+        <input class="field" type="date" id="assignmentStart" value="${esc(a.start)}">
+        <input class="field" type="time" id="assignmentStartTime" value="${esc(a.startTime || "")}">
+      </div>
     </div>
     <div class="form-row">
       <label>마감일</label>
-      <input class="field" type="date" id="assignmentDue" value="${esc(a.due)}">
+      <div class="time-grid">
+        <input class="field" type="date" id="assignmentDue" value="${esc(a.due)}">
+        <input class="field" type="time" id="assignmentDueTime" value="${esc(a.dueTime || "")}">
+      </div>
     </div>
     <div class="form-row full">
       <label>내용</label>
@@ -532,6 +551,8 @@ async function saveAssign() {
     status:   $("assignmentStatus")?.value || "지시",
     start:    $("assignmentStart")?.value || today(),
     due:      $("assignmentDue")?.value || today(),
+    startTime: $("assignmentStartTime")?.value || "",
+    dueTime:   $("assignmentDueTime")?.value || "",
     detail:   $("assignmentDetail")?.value || "",
   });
   let assignIdx = 0;
