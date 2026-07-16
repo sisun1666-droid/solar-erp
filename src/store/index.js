@@ -121,23 +121,40 @@ async function flushSave() {
           _svrIds[table] = currentIds;
         } catch (e) {
           console.warn(`[store] save failed for ${table}:`, e);
+          _pending[table] = true; // 재시도 대상으로 남겨둠
+          emit("saveError", { table, error: e });
         }
       }
     }
 
     if (_configDirty) {
-      _configDirty = false;
-      // TABLES 밖의 필드 전부(관리자 설정, gcal, 세션 등) — 필드가 늘어나도 자동으로 동기화됨
-      const configPatch = Object.fromEntries(Object.entries(_state).filter(([k]) => !TABLES.includes(k)));
-      await config.set("shared", configPatch).catch(() => {});
+      try {
+        // TABLES 밖의 필드 전부(관리자 설정, gcal, 세션 등) — 필드가 늘어나도 자동으로 동기화됨
+        const configPatch = Object.fromEntries(Object.entries(_state).filter(([k]) => !TABLES.includes(k)));
+        await config.set("shared", configPatch);
+        _configDirty = false;
+      } catch (e) {
+        console.warn("[store] config save failed:", e);
+        emit("saveError", { table: "config", error: e });
+      }
     }
 
     if (_tombsDirty) {
-      _tombsDirty = false;
-      await config.set("tombstones", _tombs).catch(() => {});
+      try {
+        await config.set("tombstones", _tombs);
+        _tombsDirty = false;
+      } catch (e) {
+        console.warn("[store] tombstone save failed:", e);
+        emit("saveError", { table: "tombstones", error: e });
+      }
     }
   } finally {
     _flushing = false;
+  }
+  // 실패분 재시도 예약 (계속 막혀 있는 네트워크에 800ms마다 재요청하지 않도록 10초 간격)
+  if (Object.keys(_pending).length || _configDirty || _tombsDirty) {
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(flushSave, 10_000);
   }
   emit("saveComplete");
 }

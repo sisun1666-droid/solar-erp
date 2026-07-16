@@ -41,9 +41,10 @@ function initOfflineBanner() {
 function initSyncStatus() {
   const el = $("syncStatus");
   if (!el) return;
-  on("saveStart",    () => { el.textContent = "저장 중..."; });
-  on("saveComplete", () => { el.textContent = "저장됨"; });
-  on("syncComplete", () => { el.textContent = "동기화됨"; });
+  on("saveStart",    () => { el.style.color = ""; el.textContent = "저장 중..."; });
+  on("saveComplete", () => { if (el.style.color !== "red") el.textContent = "저장됨"; });
+  on("syncComplete", () => { if (el.style.color !== "red") el.textContent = "동기화됨"; });
+  on("saveError",    () => { el.style.color = "red"; el.textContent = "⚠ 동기화 실패 - 인터넷 연결 확인"; });
 }
 
 // ── 모바일 사이드바 ──────────────────────────────────────────────────────
