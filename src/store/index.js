@@ -229,6 +229,7 @@ export async function initStore() {
 
   await syncFromServer();                                  // 서버 동기화
 
-  // 폴링 (30초마다)
-  setInterval(syncFromServer, 30_000);
+  // 폴링 (2분마다) — 30초 주기는 여러 기기가 하루 종일 켜져 있으면
+  // Supabase 무료 egress 한도(월 5GB)를 금방 넘겨 서비스가 통째로 막히는 원인이 됐음
+  setInterval(syncFromServer, 120_000);
 }
